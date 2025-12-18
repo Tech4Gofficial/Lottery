@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head><title>Coin Flip</title></head>
+<body>
+
+<h2>🪙 Coin Flip</h2>
+
+<input id="bet" type="number" placeholder="Bet amount">
+<button onclick="flip('heads')">Heads</button>
+<button onclick="flip('tails')">Tails</button>
+
+<p id="out"></p>
+
+<script src="firebase.js"></script>
+<script>
+function flip(choice){
+  let bet = Number(bet.value);
+  let coin = Math.random() < 0.5 ? "heads" : "tails";
+
+  firebase.auth().onAuthStateChanged(user=>{
+    let ref = firebase.database().ref("users/"+user.uid+"/balance");
+    ref.once("value", s=>{
+      let bal = s.val();
+      if(bal < bet) return alert("Low balance");
+
+      if(choice === coin){
+        ref.set(bal + bet);
+        out.innerText = "🎉 Coin: "+coin+" You WON!";
+      } else {
+        ref.set(bal - bet);
+        out.innerText = "❌ Coin: "+coin+" You LOST!";
+      }
+    });
+  });
+}
+</script>
+
+</body>
+</html>
