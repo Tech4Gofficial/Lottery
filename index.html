@@ -1,24 +1,24 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Game Login</title>
+  <title>Lottery Login</title>
 </head>
 <body>
 
-<h2>Login / Register</h2>
+<h2>Lottery – Login / Register</h2>
 
-<input id="email" placeholder="Email"><br>
+<input id="email" placeholder="Email"><br><br>
 <input id="password" type="password" placeholder="Password"><br><br>
 
-<button onclick="login()">Login</button>
 <button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+
+<p id="msg"></p>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
 <script src="firebase.js"></script>
-<script src="auth.js"></script>
 
 <script>
 function register(){
@@ -27,17 +27,21 @@ function register(){
   ).then(res => {
     firebase.database().ref("users/"+res.user.uid).set({
       email: email.value,
-      balance: 100,
-      role: "user",
-      status: "active"
+      balance: 100
     });
-  });
+    msg.innerText = "✅ User Registered Successfully!";
+    setTimeout(() => {
+      window.location.href = "games.html";
+    }, 1000);
+  }).catch(err => msg.innerText = err.message);
 }
 
 function login(){
   firebase.auth().signInWithEmailAndPassword(
     email.value, password.value
-  );
+  ).then(() => {
+    window.location.href = "games.html";
+  }).catch(err => msg.innerText = err.message);
 }
 </script>
 
