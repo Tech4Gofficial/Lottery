@@ -27,15 +27,22 @@ let uid, gameActive=false;
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){location.href="index.html"; return;}
   uid=user.uid;
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", snap => bal.innerText = snap.val());
+  const userRef=firebase.database().ref("users/"+uid);
+
+  // initialize balance if missing
+  userRef.child("balance").get().then(snap=>{
+    if(!snap.exists()) userRef.set({balance:1000});
+  });
+
+  userRef.child("balance").on("value", snap => bal.innerText = snap.val() !== null ? snap.val() : 0);
 });
 
 function play(choice){
   if(gameActive) return alert("Finish current round first!");
   gameActive=true;
-  let betAmt = Number(bet.value);
-  if(betAmt<=0) return alert("Enter a valid bet");
+  let betAmt=Number(bet.value);
+  if(betAmt<=0){gameActive=false; return alert("Enter a valid bet");}
+
   firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
     let bal=snap.val();
     if(bal<betAmt){gameActive=false; return alert("Low balance");}
@@ -47,10 +54,10 @@ function play(choice){
     let multiplier=(choice==="violet")?5:2;
     if(choice===result){
       let win=betAmt*multiplier;
-      firebase.database().ref("users/"+uid+"/balance").set(bal+win);
+      firebase.database().ref("users/"+uid+"/balance").set(Number(bal)+win);
       res.innerText="🎉 WIN "+result+" ₹"+win;
     } else {
-      firebase.database().ref("users/"+uid+"/balance").set(bal-betAmt);
+      firebase.database().ref("users/"+uid+"/balance").set(Number(bal)-betAmt);
       res.innerText="❌ LOST "+result+" ₹"+betAmt;
     }
     gameActive=false;
