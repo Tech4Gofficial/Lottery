@@ -1,65 +1,65 @@
 <!DOCTYPE html>
 <html>
+<head>
+<title>Aviator</title>
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
 
+<div class="card">
 <h2>✈️ Aviator</h2>
-<p>Balance: ₹<span id="bal">0</span></p>
+<p class="balance">Balance ₹<span id="bal">0</span></p>
 
-<input id="bet" type="number" placeholder="Bet amount"><br><br>
+<input id="bet" type="number" placeholder="Bet Amount"><br>
 <button onclick="start()">Start</button>
 <button onclick="cashout()">Cashout</button>
 
-<h3 id="multi">1.00x</h3>
+<div id="multi">1.00x</div>
 <p id="msg"></p>
 
 <a href="games.html">⬅ Back</a>
+</div>
 
 <script src="firebase.js"></script>
 <script>
-let uid, interval, multiplier=1, crashed=false, betAmt=0;
+let uid,m=1,betAmt=0,int,crashed=false;
 
 firebase.auth().onAuthStateChanged(u=>{
-  uid=u.uid;
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s=>bal.innerText=s.val());
+ uid=u.uid;
+ firebase.database().ref("users/"+uid+"/balance")
+ .on("value",s=>bal.innerText=s.val());
 });
 
 function start(){
-  betAmt = Number(bet.value);
-  multiplier=1;
-  crashed=false;
-  msg.innerText="✈️ Flying...";
-  clearInterval(interval);
-
-  interval=setInterval(()=>{
-    multiplier += 0.05;
-    multi.innerText = multiplier.toFixed(2)+"x";
-    if(Math.random()<0.03){
-      crash();
-    }
-  },100);
+ betAmt=Number(bet.value);
+ m=1;crashed=false;
+ msg.innerText="✈️ Flying...";
+ clearInterval(int);
+ int=setInterval(()=>{
+  m+=0.05;
+  multi.innerText=m.toFixed(2)+"x";
+  if(Math.random()<0.03) crash();
+ },100);
 }
 
 function cashout(){
-  if(crashed) return;
-  let win = Math.floor(betAmt * multiplier);
-  update(win);
-  msg.innerText="💰 Cashed out ₹"+win;
-  clearInterval(interval);
+ if(crashed)return;
+ let win=Math.floor(betAmt*m);
+ update(win);
+ msg.innerText="💰 Won ₹"+win;
+ clearInterval(int);
 }
 
 function crash(){
-  crashed=true;
-  msg.innerText="💥 Crashed!";
-  update(-betAmt);
-  clearInterval(interval);
+ crashed=true;
+ msg.innerText="💥 Crashed!";
+ update(-betAmt);
+ clearInterval(int);
 }
 
-function update(amount){
-  let ref=firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value", s=>{
-    ref.set(s.val()+amount);
-  });
+function update(a){
+ let r=firebase.database().ref("users/"+uid+"/balance");
+ r.once("value",s=>r.set(s.val()+a));
 }
 </script>
 
