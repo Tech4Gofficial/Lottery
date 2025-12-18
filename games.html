@@ -18,26 +18,28 @@
 <button onclick="logout()">Logout</button>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 <script>
 let uid;
 firebase.auth().onAuthStateChanged(user => {
   if(!user) location.href="index.html";
   uid = user.uid;
-
   const userRef = firebase.database().ref("users/"+uid);
 
-  // Initialize balance if not exist
-  userRef.child("balance").get().then(snap=>{
+  // Initialize balance if missing
+  userRef.child("balance").once("value").then(snap=>{
     if(!snap.exists()){
-      userRef.set({balance: 1000}); // starting balance
+      userRef.set({balance: 1020}); // starting balance
     }
   });
 
   // Display balance
   userRef.child("balance").on("value", snap=>{
     let val = snap.val();
-    bal.innerText = val !== null ? val : 0;
+    bal.innerText = val !== null ? Number(val) : 0;
   });
 });
 
