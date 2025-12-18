@@ -1,19 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Games</title>
+<title>Casino Dashboard</title>
 <link rel="stylesheet" href="style.css">
+<style>
+  .wallet{margin:20px 0;background:#1e293b;padding:15px;border-radius:10px;}
+  .wallet input{width:120px;margin:0 5px;}
+  .wallet button{margin:5px;}
+  .msg{margin-top:10px;font-size:14px;color:#facc15;}
+  .games-container{display:flex;flex-wrap:wrap;justify-content:center;margin-top:20px;}
+  .game-link{width:150px;margin:10px;padding:20px;font-size:18px;}
+</style>
 </head>
 <body>
 
 <div class="card">
-<h2>🎮 Casino Games</h2>
+<h2>🎰 Casino Dashboard</h2>
 
 <p>Balance: ₹<span id="bal">0</span></p>
 
-<a class="game-link" href="mines.html">💣 Mines</a>
-<a class="game-link" href="colorbet.html">🎨 Color Bet</a>
-<a class="game-link" href="Avaitor.html">✈️ Aviator</a>
+<div class="wallet">
+  <h3>💰 Manage Wallet</h3>
+  <input type="number" id="depositAmt" placeholder="Deposit ₹">
+  <button onclick="deposit()">Deposit</button><br>
+  <input type="number" id="withdrawAmt" placeholder="Withdraw ₹">
+  <button onclick="withdraw()">Withdraw</button>
+  <p class="msg" id="walletMsg"></p>
+</div>
+
+<h3>🎮 Play Games</h3>
+<div class="games-container">
+  <a class="game-link" href="mines.html">💣 Mines</a>
+  <a class="game-link" href="colorbet.html">🎨 Color Bet</a>
+  <a class="game-link" href="Avaitor.html">✈️ Aviator</a>
+</div>
 
 <button onclick="logout()">Logout</button>
 </div>
@@ -24,6 +44,9 @@
 <script src="firebase.js"></script>
 <script>
 let uid;
+const balEl = document.getElementById('bal');
+const walletMsg = document.getElementById('walletMsg');
+
 firebase.auth().onAuthStateChanged(user => {
   if(!user) location.href="index.html";
   uid = user.uid;
@@ -31,18 +54,45 @@ firebase.auth().onAuthStateChanged(user => {
 
   // Initialize balance if missing
   userRef.child("balance").once("value").then(snap=>{
-    if(!snap.exists()){
-      userRef.set({balance: 1020}); // starting balance
-    }
+    if(!snap.exists()) userRef.set({balance:1020});
   });
 
-  // Display balance
-  userRef.child("balance").on("value", snap=>{
-    let val = snap.val();
-    bal.innerText = val !== null ? Number(val) : 0;
+  // Update balance display in real-time
+  userRef.child("balance").on("value", snap => {
+    const val = snap.val();
+    balEl.innerText = val !== null ? Number(val) : 0;
   });
 });
 
+// Deposit function
+function deposit(){
+  const amt = Number(document.getElementById('depositAmt').value);
+  if(amt <= 0){ walletMsg.innerText="Enter a valid deposit amount"; return; }
+
+  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
+    const newBal = Number(snap.val()) + amt;
+    firebase.database().ref("users/"+uid+"/balance").set(newBal);
+    walletMsg.innerText="✅ Deposited ₹"+amt;
+    document.getElementById('depositAmt').value="";
+  });
+}
+
+// Withdraw function
+function withdraw(){
+  const amt = Number(document.getElementById('withdrawAmt').value);
+  if(amt <= 0){ walletMsg.innerText="Enter a valid withdraw amount"; return; }
+
+  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
+    const bal = Number(snap.val());
+    if(amt > bal){ walletMsg.innerText="❌ Insufficient balance"; return; }
+    const newBal = bal - amt;
+    firebase.database().ref("users/"+uid+"/balance").set(newBal);
+    walletMsg.innerText="✅ Withdrawn ₹"+amt;
+    document.getElementById('withdrawAmt').value="";
+  });
+}
+
+// Logout
 function logout(){
   firebase.auth().signOut();
   location.href="index.html";
