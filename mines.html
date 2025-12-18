@@ -1,81 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mines</title>
-  <link rel="stylesheet" href="style.css">
+<title>Mines</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-  <h2>💣 Mines</h2>
-  <p>Balance: ₹<span id="bal">0</span></p>
+<h2>💣 Mines</h2>
+<p>Balance: ₹<span id="bal">0</span></p>
 
-  <button onclick="start()">Start (₹10)</button>
-  <div id="grid"></div>
-  <p id="msg"></p>
-  <button onclick="cashout()">Cashout</button>
-
-  <a href="games.html">⬅ Back to Games</a><br><br>
-  <button onclick="logout()">Logout</button>
+<input type="number" id="bet" placeholder="Bet Amount" value="10"><br>
+<button onclick="start()">Start</button>
+<div id="grid"></div>
+<p id="msg"></p>
+<button onclick="cashout()">Cashout</button>
+<a href="games.html">⬅ Back to Games</a><br><br>
+<button onclick="logout()">Logout</button>
 </div>
 
 <script src="firebase.js"></script>
 <script>
-let uid, mine, win=10, opened=0;
+let uid, mine, opened=0, win=0, betAmt=10, gameActive=false;
 
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user) { location.href="index.html"; return; }
-  uid = user.uid;
-
+  if(!user){location.href="index.html"; return;}
+  uid=user.uid;
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => bal.innerText = snap.val());
 });
 
 function start(){
-  mine = Math.floor(Math.random()*5);
-  win = 10; opened = 0;
-  grid.innerHTML = "";
-  msg.innerText = "Pick a tile";
+  if(gameActive) return alert("Finish the current game!");
+  betAmt = Number(bet.value);
+  if(betAmt<=0) return alert("Enter a valid bet");
+  gameActive=true;
+  mine=Math.floor(Math.random()*5);
+  opened=0;
+  win=betAmt;
+  grid.innerHTML="";
+  msg.innerText="Pick a tile";
 
   for(let i=0;i<5;i++){
     let b=document.createElement("button");
-    b.innerText = "❓";
+    b.innerText="❓";
     b.onclick = ()=> openTile(i,b);
     grid.appendChild(b);
   }
 }
 
 function openTile(i,btn){
+  if(!gameActive) return;
   if(i===mine){
-    btn.innerText = "💥"; btn.classList.add("bomb");
-    msg.innerText = "Mine hit! Lost ₹10";
-    update(-10);
-    grid.innerHTML = "";
+    btn.innerText="💥"; btn.classList.add("bomb");
+    msg.innerText="Mine hit! Lost ₹"+betAmt;
+    update(-betAmt);
+    gameActive=false;
+    grid.innerHTML="";
   } else {
     btn.innerText="💎"; btn.classList.add("safe"); btn.disabled=true;
-    opened++; win+=5;
-    msg.innerText = "Safe! Cashout ₹"+win;
+    opened++;
+    win = Math.floor(betAmt*(1+opened*0.5));
+    msg.innerText="Safe! Potential cashout ₹"+win;
   }
 }
 
 function cashout(){
-  if(opened>0){
-    update(win);
-    msg.innerText = "Cashed out ₹"+win;
-    grid.innerHTML = "";
-  }
+  if(!gameActive || opened===0) return alert("No tiles opened");
+  update(win);
+  msg.innerText="Cashed out ₹"+win;
+  gameActive=false;
+  grid.innerHTML="";
 }
 
 function update(amount){
-  firebase.database().ref("users/"+uid+"/balance")
-    .once("value", snap => {
-      firebase.database().ref("users/"+uid+"/balance").set(snap.val() + amount);
-    });
+  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
+    firebase.database().ref("users/"+uid+"/balance").set(snap.val()+amount);
+  });
 }
 
 function logout(){
   firebase.auth().signOut();
-  location.href = "index.html";
+  location.href="index.html";
 }
 </script>
 </body>
