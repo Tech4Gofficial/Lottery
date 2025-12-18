@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Deposit</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+<h2>💰 Deposit</h2>
+
+<p class="balance">Pay To UPI</p>
+<h3>patelrajh2405@okicici</h3>
+
+<p>Min ₹200 | Max ₹5000</p>
+
+<input id="amount" type="number" placeholder="Enter Amount"><br>
+<input id="utr" placeholder="Enter UTR / Ref No"><br>
+
+<button onclick="submitDeposit()">Submit Deposit</button>
+
+<p id="msg"></p>
+<a href="user.html">⬅ Back</a>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+let uid;
+
+firebase.auth().onAuthStateChanged(u=>{
+ if(!u) location="index.html";
+ uid=u.uid;
+});
+
+function submitDeposit(){
+ let amt = Number(amount.value);
+ let ref = utr.value.trim();
+
+ if(amt < 200 || amt > 5000)
+  return msg.innerText="❌ Amount must be between ₹200 and ₹5000";
+
+ if(ref.length < 6)
+  return msg.innerText="❌ Invalid UTR";
+
+ firebase.database().ref("deposits/"+uid).push({
+  amount: amt,
+  utr: ref,
+  status: "pending",
+  time: Date.now()
+ });
+
+ msg.innerText="✅ Deposit request submitted (Pending)";
+ amount.value=""; utr.value="";
+}
+</script>
+
+</body>
+</html>
