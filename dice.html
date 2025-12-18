@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head><title>Dice Game</title></head>
+<body>
+
+<h2>🎲 Dice Betting</h2>
+<p>Bet Amount:</p>
+<input id="bet" type="number">
+<button onclick="roll()">Roll Dice</button>
+
+<p id="result"></p>
+
+<script src="firebase.js"></script>
+<script>
+function roll(){
+  let bet = Number(bet.value);
+  let dice = Math.floor(Math.random() * 6) + 1;
+
+  firebase.auth().onAuthStateChanged(user => {
+    let ref = firebase.database().ref("users/"+user.uid+"/balance");
+    ref.once("value", snap => {
+      let bal = snap.val();
+      if(bal < bet) return alert("Insufficient balance");
+
+      if(dice >= 4){
+        ref.set(bal + bet);
+        result.innerText = "🎉 Dice: " + dice + " You WON!";
+      } else {
+        ref.set(bal - bet);
+        result.innerText = "❌ Dice: " + dice + " You LOST!";
+      }
+    });
+  });
+}
+</script>
+
+</body>
+</html>
