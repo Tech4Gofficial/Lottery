@@ -1,43 +1,35 @@
-/* ---------- GLOBAL ---------- */
-*{
-  box-sizing:border-box;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
+*{box-sizing:border-box;font-family:Arial}
 body{
   background:#0f172a;
   color:#e5e7eb;
   text-align:center;
   padding:20px;
 }
+h2{color:#38bdf8}
 
-h2{
-  margin-bottom:10px;
-  color:#38bdf8;
+.card{
+  background:#020617;
+  padding:20px;
+  max-width:380px;
+  margin:20px auto;
+  border-radius:14px;
+  box-shadow:0 0 25px rgba(0,0,0,.6);
 }
 
-/* ---------- BUTTONS ---------- */
+.balance{color:#22c55e;font-size:18px;margin-bottom:10px}
+
 button{
+  padding:10px 16px;
+  border:none;
+  border-radius:8px;
   background:#2563eb;
   color:white;
-  border:none;
-  padding:10px 16px;
-  margin:5px;
-  border-radius:8px;
   cursor:pointer;
-  font-size:15px;
+  margin:5px;
 }
+button:hover{background:#1d4ed8}
+button:disabled{background:#334155}
 
-button:hover{
-  background:#1d4ed8;
-}
-
-button:disabled{
-  background:#334155;
-  cursor:not-allowed;
-}
-
-/* ---------- INPUT ---------- */
 input{
   padding:10px;
   width:180px;
@@ -45,39 +37,21 @@ input{
   border:none;
   margin-bottom:10px;
   text-align:center;
-  font-size:15px;
 }
 
-/* ---------- LINKS ---------- */
-a{
-  color:#22d3ee;
-  text-decoration:none;
-  display:inline-block;
-  margin-top:15px;
-}
+a{color:#22d3ee;text-decoration:none;display:block;margin-top:15px}
 
-a:hover{
-  text-decoration:underline;
-}
-
-/* ---------- CARD ---------- */
-.card{
+.game-link{
   background:#020617;
-  padding:20px;
-  max-width:360px;
-  margin:20px auto;
-  border-radius:14px;
-  box-shadow:0 0 20px rgba(0,0,0,0.5);
+  padding:14px;
+  margin:10px auto;
+  max-width:260px;
+  border-radius:10px;
+  color:white;
 }
+.game-link:hover{background:#1e293b}
 
-/* ---------- BALANCE ---------- */
-.balance{
-  font-size:18px;
-  margin-bottom:10px;
-  color:#22c55e;
-}
-
-/* ---------- MINES GRID ---------- */
+/* Mines */
 #grid{
   display:grid;
   grid-template-columns:repeat(5,60px);
@@ -85,52 +59,12 @@ a:hover{
   justify-content:center;
   margin:15px 0;
 }
+#grid button{width:60px;height:60px;font-size:22px;background:#1e293b}
 
-#grid button{
-  width:60px;
-  height:60px;
-  font-size:22px;
-  background:#1e293b;
-}
+/* Color buttons */
+.red{background:#dc2626}
+.green{background:#16a34a}
+.violet{background:#7c3aed}
 
-/* ---------- COLOR BET ---------- */
-.red{background:#dc2626;}
-.green{background:#16a34a;}
-.violet{background:#7c3aed;}
-
-.red:hover{background:#b91c1c;}
-.green:hover{background:#15803d;}
-.violet:hover{background:#6d28d9;}
-
-/* ---------- AVIATOR ---------- */
-#multi{
-  font-size:32px;
-  margin:10px 0;
-  color:#facc15;
-}
-
-.crash{
-  color:#ef4444;
-  font-weight:bold;
-}
-
-/* ---------- MESSAGE ---------- */
-#msg, #res{
-  margin-top:10px;
-  font-size:16px;
-}
-
-/* ---------- GAME LINKS ---------- */
-.game-link{
-  display:block;
-  background:#020617;
-  margin:10px auto;
-  padding:15px;
-  max-width:280px;
-  border-radius:10px;
-  color:white;
-}
-
-.game-link:hover{
-  background:#1e293b;
-}
+/* Aviator */
+#multi{font-size:34px;color:#facc15;margin:10px 0}
