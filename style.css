@@ -26,8 +26,10 @@ button{
   color:white;
   cursor:pointer;
   margin:5px;
+  transition:.15s;
 }
 button:hover{background:#1d4ed8}
+button:active{transform:scale(.95)}
 button:disabled{background:#334155}
 
 input{
@@ -51,7 +53,7 @@ a{color:#22d3ee;text-decoration:none;display:block;margin-top:15px}
 }
 .game-link:hover{background:#1e293b}
 
-/* Mines */
+/* ---- MINES ---- */
 #grid{
   display:grid;
   grid-template-columns:repeat(5,60px);
@@ -59,12 +61,45 @@ a{color:#22d3ee;text-decoration:none;display:block;margin-top:15px}
   justify-content:center;
   margin:15px 0;
 }
-#grid button{width:60px;height:60px;font-size:22px;background:#1e293b}
+#grid button{
+  width:60px;height:60px;
+  font-size:22px;
+  background:#1e293b;
+}
 
-/* Color buttons */
+@keyframes flip{to{transform:rotateY(180deg)}}
+.safe{background:#16a34a!important;animation:flip .4s}
+.bomb{background:#dc2626!important;animation:flip .4s}
+
+/* ---- COLOR BET ---- */
 .red{background:#dc2626}
 .green{background:#16a34a}
 .violet{background:#7c3aed}
 
-/* Aviator */
-#multi{font-size:34px;color:#facc15;margin:10px 0}
+@keyframes flash{
+  0%{opacity:1}50%{opacity:.3}100%{opacity:1}
+}
+.flash{animation:flash .5s ease 3}
+
+/* ---- AVIATOR ---- */
+#multi{
+  font-size:34px;
+  color:#facc15;
+  animation:fly 1s infinite ease-in-out;
+}
+@keyframes fly{
+  0%{transform:translateY(0)}
+  50%{transform:translateY(-6px)}
+  100%{transform:translateY(0)}
+}
+.crash{
+  color:#ef4444!important;
+  animation:shake .4s;
+}
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}
+  50%{transform:translateX(6px)}
+  75%{transform:translateX(-6px)}
+  100%{transform:translateX(0)}
+}
