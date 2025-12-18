@@ -13,17 +13,32 @@
 
 <a class="game-link" href="mines.html">💣 Mines</a>
 <a class="game-link" href="colorbet.html">🎨 Color Bet</a>
-<a class="game-link" href="Avaitor.html">✈️ Aviator</a>
+<a class="game-link" href="aviator.html">✈️ Aviator</a>
 
 <button onclick="logout()">Logout</button>
 </div>
 
 <script src="firebase.js"></script>
 <script>
+let uid;
 firebase.auth().onAuthStateChanged(user => {
   if(!user) location.href="index.html";
-  firebase.database().ref("users/"+user.uid+"/balance")
-    .on("value", snap => bal.innerText = snap.val());
+  uid = user.uid;
+
+  const userRef = firebase.database().ref("users/"+uid);
+
+  // Initialize balance if not exist
+  userRef.child("balance").get().then(snap=>{
+    if(!snap.exists()){
+      userRef.set({balance: 1000}); // starting balance
+    }
+  });
+
+  // Display balance
+  userRef.child("balance").on("value", snap=>{
+    let val = snap.val();
+    bal.innerText = val !== null ? val : 0;
+  });
 });
 
 function logout(){
