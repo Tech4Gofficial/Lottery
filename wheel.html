@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><title>Spin Wheel</title></head>
+<body>
+
+<h2>🎡 Spin Wheel</h2>
+<input id="bet" type="number">
+<button onclick="spin()">SPIN</button>
+<p id="msg"></p>
+
+<script src="firebase.js"></script>
+<script>
+function spin(){
+  let bet = Number(bet.value);
+  let multiplier = [0, 0.5, 1, 2][Math.floor(Math.random()*4)];
+
+  firebase.auth().onAuthStateChanged(user=>{
+    let ref = firebase.database().ref("users/"+user.uid+"/balance");
+    ref.once("value", s=>{
+      let bal = s.val();
+      if(bal < bet) return alert("Low balance");
+
+      let win = bet * multiplier;
+      ref.set(bal - bet + win);
+      msg.innerText = "🎯 Multiplier x"+multiplier+" | Win ₹"+win;
+    });
+  });
+}
+</script>
+
+</body>
+</html>
