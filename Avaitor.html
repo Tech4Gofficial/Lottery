@@ -27,15 +27,20 @@ let uid, multiplier=1, betAmt=0, interval, crashed=false, gameActive=false;
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){location.href="index.html"; return;}
   uid=user.uid;
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", snap => bal.innerText = snap.val());
+  const userRef=firebase.database().ref("users/"+uid);
+
+  // initialize balance if missing
+  userRef.child("balance").get().then(snap=>{
+    if(!snap.exists()) userRef.set({balance:1000});
+  });
+
+  userRef.child("balance").on("value", snap => bal.innerText = snap.val() !== null ? snap.val() : 0);
 });
 
 function start(){
   if(gameActive) return alert("Finish current game!");
-  betAmt = Number(bet.value);
+  betAmt=Number(bet.value);
   if(betAmt<=0) return alert("Enter a valid bet");
-
   multiplier=1; crashed=false; gameActive=true;
   msg.innerText="Flying...";
   multi.classList.remove("crash");
@@ -44,7 +49,6 @@ function start(){
   interval=setInterval(()=>{
     multiplier+=0.05;
     multi.innerText=multiplier.toFixed(2)+"x";
-
     if(Math.random()<(multiplier/50)) crash(); // probability increases with multiplier
   },100);
 }
@@ -69,7 +73,7 @@ function crash(){
 
 function update(amount){
   firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
-    firebase.database().ref("users/"+uid+"/balance").set(snap.val()+amount);
+    firebase.database().ref("users/"+uid+"/balance").set(Number(snap.val())+amount);
   });
 }
 
