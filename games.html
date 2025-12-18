@@ -1,14 +1,41 @@
 <!DOCTYPE html>
 <html>
-<head><title>Games</title></head>
+<head>
+  <title>Games</title>
+</head>
 <body>
-<h2>🎮 Betting Games</h2>
 
-<a href="dice.html">🎲 Dice Game</a><br>
-<a href="coinflip.html">🪙 Coin Flip</a><br>
-<a href="mines.html">💣 Mines</a><br>
-<a href="wheel.html">🎡 Spin Wheel</a><br>
+<h2>🎮 Welcome to Lottery Games</h2>
+<p>Balance: ₹<span id="bal">0</span></p>
 
-<a href="user.html">⬅ Back to Wallet</a>
+<a href="dice.html">🎲 Play Dice</a><br><br>
+<a href="coinflip.html">🪙 Play Coin Flip</a><br><br>
+
+<button onclick="logout()">Logout</button>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="firebase.js"></script>
+
+<script>
+firebase.auth().onAuthStateChanged(user => {
+  if(!user){
+    window.location.href = "index.html";
+    return;
+  }
+
+  firebase.database().ref("users/"+user.uid+"/balance")
+    .on("value", snap => {
+      bal.innerText = snap.val();
+    });
+});
+
+function logout(){
+  firebase.auth().signOut();
+  location.href = "index.html";
+}
+</script>
+
 </body>
 </html>
