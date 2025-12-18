@@ -1,70 +1,62 @@
 <!DOCTYPE html>
 <html>
+<head>
+<title>Mines</title>
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
 
-<h2>💣 Mines Game</h2>
-<p>Bet: ₹10 | 1 Mine | 5 Tiles</p>
-<p>Balance: ₹<span id="bal">0</span></p>
+<div class="card">
+<h2>💣 Mines</h2>
+<p class="balance">Balance ₹<span id="bal">0</span></p>
 
-<button onclick="start()">Start Game</button>
+<button onclick="start()">Start (₹10)</button>
 <div id="grid"></div>
 <p id="msg"></p>
 <button onclick="cashout()">Cashout</button>
 
 <a href="games.html">⬅ Back</a>
+</div>
 
 <script src="firebase.js"></script>
 <script>
-let mine, opened = 0, win = 10, uid;
+let uid, mine, win=10, opened=0;
 
 firebase.auth().onAuthStateChanged(u=>{
-  uid = u.uid;
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s => bal.innerText = s.val());
+ uid=u.uid;
+ firebase.database().ref("users/"+uid+"/balance")
+  .on("value",s=>bal.innerText=s.val());
 });
 
 function start(){
-  mine = Math.floor(Math.random()*5);
-  opened = 0;
-  win = 10;
-  grid.innerHTML = "";
-  msg.innerText = "Game started";
-
-  for(let i=0;i<5;i++){
-    let b = document.createElement("button");
-    b.innerText = "❓";
-    b.onclick = () => openTile(i,b);
-    grid.appendChild(b);
-  }
+ mine=Math.floor(Math.random()*5);
+ win=10;opened=0;grid.innerHTML="";msg.innerText="Pick tiles";
+ for(let i=0;i<5;i++){
+  let b=document.createElement("button");
+  b.innerText="❓";
+  b.onclick=()=>openTile(i,b);
+  grid.appendChild(b);
+ }
 }
 
-function openTile(i,btn){
-  if(i === mine){
-    msg.innerText = "💥 Mine! You lost ₹10";
-    update(-10);
-    grid.innerHTML="";
-  } else {
-    btn.innerText="💎";
-    opened++;
-    win += 5;
-    msg.innerText = "Safe! Potential win ₹"+win;
-    btn.disabled=true;
-  }
+function openTile(i,b){
+ if(i===mine){
+  msg.innerText="💥 Mine! Lost ₹10";
+  update(-10);grid.innerHTML="";
+ }else{
+  b.innerText="💎";b.disabled=true;
+  opened++;win+=5;
+  msg.innerText="Safe! Cashout ₹"+win;
+ }
 }
 
 function cashout(){
-  if(opened>0){
-    update(win);
-    msg.innerText="💰 Cashed out ₹"+win;
-    grid.innerHTML="";
-  }
+ if(opened>0){update(win);msg.innerText="💰 Won ₹"+win;grid.innerHTML="";}
 }
 
-function update(amount){
-  let ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value", s=>{
-    ref.set(s.val()+amount);
-  });
+function update(a){
+ let r=firebase.database().ref("users/"+uid+"/balance");
+ r.once("value",s=>r.set(s.val()+a));
 }
 </script>
 
