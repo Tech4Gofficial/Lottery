@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Aviator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+  <h2>✈️ Aviator</h2>
+  <p>Balance: ₹<span id="bal">0</span></p>
+
+  <input id="bet" type="number" placeholder="Bet Amount"><br>
+  <button onclick="start()">Start</button>
+  <button onclick="cashout()">Cashout</button>
+
+  <div id="multi">1.00x</div>
+  <p id="msg"></p>
+  <a href="games.html">⬅ Back to Games</a><br><br>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+let uid,multiplier=1,betAmt=0,interval,crashed=false;
+
+firebase.auth().onAuthStateChanged(user=>{
+  if(!user){ location.href="index.html"; return; }
+  uid=user.uid;
+  firebase.database().ref("users/"+uid+"/balance")
+    .on("value", snap => bal.innerText = snap.val());
+});
+
+function start(){
+  betAmt = Number(bet.value);
+  multiplier = 1;
+  crashed = false;
+  msg.innerText = "Flying...";
+  multi.classList.remove("crash");
+  clearInterval(interval);
+
+  interval = setInterval(()=>{
+    multiplier += 0.05;
+    multi.innerText = multiplier.toFixed(2)+"x";
+    if(Math.random()<0.03) crash();
+  },100);
+}
+
+function cashout(){
+  if(crashed) return;
+  let win = Math.floor(betAmt * multiplier);
+  update(win);
+  msg.innerText = "Cashed out ₹"+win;
+  clearInterval(interval);
+}
+
+function crash(){
+  crashed=true;
+  multi.classList.add("crash");
+  msg.innerText="CRASHED!";
+  update(-betAmt);
+  clearInterval(interval);
+}
+
+function update(amount){
+  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
+    firebase.database().r
