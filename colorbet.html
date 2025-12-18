@@ -20,6 +20,9 @@
 <button onclick="logout()">Logout</button>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 <script>
 let uid, gameActive=false;
@@ -29,12 +32,11 @@ firebase.auth().onAuthStateChanged(user=>{
   uid=user.uid;
   const userRef=firebase.database().ref("users/"+uid);
 
-  // initialize balance if missing
-  userRef.child("balance").get().then(snap=>{
-    if(!snap.exists()) userRef.set({balance:1000});
+  userRef.child("balance").once("value").then(snap=>{
+    if(!snap.exists()) userRef.set({balance:1020});
   });
 
-  userRef.child("balance").on("value", snap => bal.innerText = snap.val() !== null ? snap.val() : 0);
+  userRef.child("balance").on("value", snap => bal.innerText = snap.val() !== null ? Number(snap.val()) : 0);
 });
 
 function play(choice){
