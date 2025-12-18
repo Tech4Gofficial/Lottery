@@ -1,67 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Aviator</title>
-  <link rel="stylesheet" href="style.css">
+<title>Aviator</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-  <h2>✈️ Aviator</h2>
-  <p>Balance: ₹<span id="bal">0</span></p>
+<h2>✈️ Aviator</h2>
+<p>Balance: ₹<span id="bal">0</span></p>
 
-  <input id="bet" type="number" placeholder="Bet Amount"><br>
-  <button onclick="start()">Start</button>
-  <button onclick="cashout()">Cashout</button>
+<input type="number" id="bet" placeholder="Bet Amount" value="10"><br>
+<button onclick="start()">Start</button>
+<button onclick="cashout()">Cashout</button>
 
-  <div id="multi">1.00x</div>
-  <p id="msg"></p>
-  <a href="games.html">⬅ Back to Games</a><br><br>
-  <button onclick="logout()">Logout</button>
+<div id="multi">1.00x</div>
+<p id="msg"></p>
+<a href="games.html">⬅ Back to Games</a><br><br>
+<button onclick="logout()">Logout</button>
 </div>
 
 <script src="firebase.js"></script>
 <script>
-let uid,multiplier=1,betAmt=0,interval,crashed=false;
+let uid, multiplier=1, betAmt=0, interval, crashed=false, gameActive=false;
 
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user){ location.href="index.html"; return; }
+  if(!user){location.href="index.html"; return;}
   uid=user.uid;
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => bal.innerText = snap.val());
 });
 
 function start(){
+  if(gameActive) return alert("Finish current game!");
   betAmt = Number(bet.value);
-  multiplier = 1;
-  crashed = false;
-  msg.innerText = "Flying...";
+  if(betAmt<=0) return alert("Enter a valid bet");
+
+  multiplier=1; crashed=false; gameActive=true;
+  msg.innerText="Flying...";
   multi.classList.remove("crash");
   clearInterval(interval);
 
-  interval = setInterval(()=>{
-    multiplier += 0.05;
-    multi.innerText = multiplier.toFixed(2)+"x";
-    if(Math.random()<0.03) crash();
+  interval=setInterval(()=>{
+    multiplier+=0.05;
+    multi.innerText=multiplier.toFixed(2)+"x";
+
+    if(Math.random()<(multiplier/50)) crash(); // probability increases with multiplier
   },100);
 }
 
 function cashout(){
-  if(crashed) return;
-  let win = Math.floor(betAmt * multiplier);
+  if(!gameActive || crashed) return;
+  let win=Math.floor(betAmt*multiplier);
   update(win);
-  msg.innerText = "Cashed out ₹"+win;
+  msg.innerText="Cashed out ₹"+win;
+  gameActive=false;
   clearInterval(interval);
 }
 
 function crash(){
   crashed=true;
   multi.classList.add("crash");
-  msg.innerText="CRASHED!";
+  msg.innerText="💥 CRASHED!";
   update(-betAmt);
+  gameActive=false;
   clearInterval(interval);
 }
 
 function update(amount){
   firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
-    firebase.database().r
+    firebase.database().ref("users/"+uid+"/balance").set(snap.val()+amount);
+  });
+}
+
+function logout(){
+  firebase.auth().signOut();
+  location.href="index.html";
+}
+</script>
+</body>
+</html>
