@@ -9,12 +9,27 @@
 <div class="card">
 <h2>🎮 Casino Games</h2>
 
+<p>Balance: ₹<span id="bal">0</span></p>
+
 <a class="game-link" href="mines.html">💣 Mines</a>
 <a class="game-link" href="colorbet.html">🎨 Color Bet</a>
-<a class="game-link" href="Avaitor.html">✈️ Aviator</a>
+<a class="game-link" href="aviator.html">✈️ Aviator</a>
 
-<a href="index.html">⬅ Wallet</a>
+<button onclick="logout()">Logout</button>
 </div>
 
+<script src="firebase.js"></script>
+<script>
+firebase.auth().onAuthStateChanged(user => {
+  if(!user) location.href="index.html";
+  firebase.database().ref("users/"+user.uid+"/balance")
+    .on("value", snap => bal.innerText = snap.val());
+});
+
+function logout(){
+  firebase.auth().signOut();
+  location.href="index.html";
+}
+</script>
 </body>
 </html>
