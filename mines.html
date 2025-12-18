@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head><title>Mines</title></head>
+<body>
+
+<h2>💣 Mines (Demo)</h2>
+<p>Click a box. 1 bomb, 4 safe.</p>
+
+<button onclick="play()">Pick Tile</button>
+<p id="res"></p>
+
+<script src="firebase.js"></script>
+<script>
+function play(){
+  let bomb = Math.floor(Math.random() * 5);
+
+  firebase.auth().onAuthStateChanged(user=>{
+    let ref = firebase.database().ref("users/"+user.uid+"/balance");
+    ref.once("value", s=>{
+      let bal = s.val();
+      let bet = 10;
+
+      if(Math.floor(Math.random()*5) === bomb){
+        ref.set(bal - bet);
+        res.innerText = "💥 Bomb! You lost ₹10";
+      } else {
+        ref.set(bal + bet);
+        res.innerText = "💎 Safe! You won ₹10";
+      }
+    });
+  });
+}
+</script>
+
+</body>
+</html>
