@@ -1,33 +1,44 @@
 <!DOCTYPE html>
 <html>
-<head><title>Dice Game</title></head>
+<head>
+  <title>Dice Game</title>
+</head>
 <body>
 
-<h2>🎲 Dice Betting</h2>
-<p>Bet Amount:</p>
-<input id="bet" type="number">
-<button onclick="roll()">Roll Dice</button>
+<h2>🎲 Dice Game</h2>
+<p>Win if dice ≥ 4</p>
 
-<p id="result"></p>
+<input id="bet" type="number" placeholder="Bet amount"><br><br>
+<button onclick="play()">Roll Dice</button>
 
+<p id="res"></p>
+<a href="games.html">⬅ Back</a>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
+
 <script>
-function roll(){
-  let bet = Number(bet.value);
-  let dice = Math.floor(Math.random() * 6) + 1;
+function play(){
+  let betAmt = Number(bet.value);
+  if(betAmt <= 0) return alert("Invalid bet");
 
   firebase.auth().onAuthStateChanged(user => {
     let ref = firebase.database().ref("users/"+user.uid+"/balance");
+
     ref.once("value", snap => {
       let bal = snap.val();
-      if(bal < bet) return alert("Insufficient balance");
+      if(bal < betAmt) return alert("Not enough balance");
+
+      let dice = Math.floor(Math.random()*6)+1;
 
       if(dice >= 4){
-        ref.set(bal + bet);
-        result.innerText = "🎉 Dice: " + dice + " You WON!";
+        ref.set(bal + betAmt);
+        res.innerText = "🎉 Dice: "+dice+" You WON!";
       } else {
-        ref.set(bal - bet);
-        result.innerText = "❌ Dice: " + dice + " You LOST!";
+        ref.set(bal - betAmt);
+        res.innerText = "❌ Dice: "+dice+" You LOST!";
       }
     });
   });
