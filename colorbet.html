@@ -1,52 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Color Bet</title>
-<link rel="stylesheet" href="style.css">
+  <title>Color Bet</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-<h2>🎨 Color Bet</h2>
-<p class="balance">Balance ₹<span id="bal">0</span></p>
+  <h2>🎨 Color Bet</h2>
+  <p>Balance: ₹<span id="bal">0</span></p>
 
-<input id="bet" type="number" placeholder="Bet Amount"><br>
+  <input id="bet" type="number" placeholder="Bet Amount"><br>
+  <button class="red" onclick="play('red')">Red 2x</button>
+  <button class="green" onclick="play('green')">Green 2x</button>
+  <button class="violet" onclick="play('violet')">Violet 5x</button>
 
-<button class="red" onclick="play('red')">Red (2x)</button>
-<button class="green" onclick="play('green')">Green (2x)</button>
-<button class="violet" onclick="play('violet')">Violet (5x)</button>
-
-<p id="res"></p>
-<a href="games.html">⬅ Back</a>
+  <p id="res"></p>
+  <a href="games.html">⬅ Back to Games</a><br><br>
+  <button onclick="logout()">Logout</button>
 </div>
 
 <script src="firebase.js"></script>
 <script>
 let uid;
-firebase.auth().onAuthStateChanged(u=>{
- uid=u.uid;
- firebase.database().ref("users/"+uid+"/balance")
- .on("value",s=>bal.innerText=s.val());
+firebase.auth().onAuthStateChanged(user=>{
+  if(!user){ location.href="index.html"; return; }
+  uid=user.uid;
+  firebase.database().ref("users/"+uid+"/balance")
+    .on("value", snap => bal.innerText = snap.val());
 });
 
-function play(c){
- let b=Number(bet.value);
- let r=["red","green","violet","red","green"][Math.floor(Math.random()*5)];
- let ref=firebase.database().ref("users/"+uid+"/balance");
- ref.once("value",s=>{
-  let bal=s.val();
-  if(bal<b) return alert("Low balance");
-  if(c===r){
-   let win=c==="violet"?b*5:b*2;
-   ref.set(bal+win);
-   res.innerText="🎉 "+r+" WON ₹"+win;
-  }else{
-   ref.set(bal-b);
-   res.innerText="❌ Result "+r;
-  }
- });
+function play(choice){
+  let betAmt = Number(bet.value);
+  let colors = ["red","green","violet","red","green"];
+  let result = colors[Math.floor(Math.random()*5)];
+  res.classList.add("flash");
+
+  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
+    let bal = snap.val();
+    if(bal < betAmt) return alert("Low balance");
+
+    if(choice === result){
+      let win = choice==="violet"? betAmt*5 : betAmt*2;
+      firebase.database().ref("users/"+uid+"/balance").set(bal + win);
+      res.innerText = "🎉 "+result+" WIN ₹"+win;
+    } else {
+      firebase.database().ref("users/"+uid+"/balance").set(bal - betAmt);
+      res.innerText = "❌ "+result+" LOST";
+    }
+  });
+}
+
+function logout(){
+  firebase.auth().signOut();
+  location.href = "index.html";
 }
 </script>
-
 </body>
 </html>
