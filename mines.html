@@ -1,33 +1,69 @@
 <!DOCTYPE html>
 <html>
-<head><title>Mines</title></head>
 <body>
 
-<h2>💣 Mines (Demo)</h2>
-<p>Click a box. 1 bomb, 4 safe.</p>
+<h2>💣 Mines Game</h2>
+<p>Bet: ₹10 | 1 Mine | 5 Tiles</p>
+<p>Balance: ₹<span id="bal">0</span></p>
 
-<button onclick="play()">Pick Tile</button>
-<p id="res"></p>
+<button onclick="start()">Start Game</button>
+<div id="grid"></div>
+<p id="msg"></p>
+<button onclick="cashout()">Cashout</button>
+
+<a href="games.html">⬅ Back</a>
 
 <script src="firebase.js"></script>
 <script>
-function play(){
-  let bomb = Math.floor(Math.random() * 5);
+let mine, opened = 0, win = 10, uid;
 
-  firebase.auth().onAuthStateChanged(user=>{
-    let ref = firebase.database().ref("users/"+user.uid+"/balance");
-    ref.once("value", s=>{
-      let bal = s.val();
-      let bet = 10;
+firebase.auth().onAuthStateChanged(u=>{
+  uid = u.uid;
+  firebase.database().ref("users/"+uid+"/balance")
+    .on("value", s => bal.innerText = s.val());
+});
 
-      if(Math.floor(Math.random()*5) === bomb){
-        ref.set(bal - bet);
-        res.innerText = "💥 Bomb! You lost ₹10";
-      } else {
-        ref.set(bal + bet);
-        res.innerText = "💎 Safe! You won ₹10";
-      }
-    });
+function start(){
+  mine = Math.floor(Math.random()*5);
+  opened = 0;
+  win = 10;
+  grid.innerHTML = "";
+  msg.innerText = "Game started";
+
+  for(let i=0;i<5;i++){
+    let b = document.createElement("button");
+    b.innerText = "❓";
+    b.onclick = () => openTile(i,b);
+    grid.appendChild(b);
+  }
+}
+
+function openTile(i,btn){
+  if(i === mine){
+    msg.innerText = "💥 Mine! You lost ₹10";
+    update(-10);
+    grid.innerHTML="";
+  } else {
+    btn.innerText="💎";
+    opened++;
+    win += 5;
+    msg.innerText = "Safe! Potential win ₹"+win;
+    btn.disabled=true;
+  }
+}
+
+function cashout(){
+  if(opened>0){
+    update(win);
+    msg.innerText="💰 Cashed out ₹"+win;
+    grid.innerHTML="";
+  }
+}
+
+function update(amount){
+  let ref = firebase.database().ref("users/"+uid+"/balance");
+  ref.once("value", s=>{
+    ref.set(s.val()+amount);
   });
 }
 </script>
