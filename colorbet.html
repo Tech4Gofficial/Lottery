@@ -1,47 +1,50 @@
 <!DOCTYPE html>
 <html>
+<head>
+<title>Color Bet</title>
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
 
+<div class="card">
 <h2>🎨 Color Bet</h2>
-<p>Balance: ₹<span id="bal">0</span></p>
+<p class="balance">Balance ₹<span id="bal">0</span></p>
 
-<input id="bet" type="number" placeholder="Bet amount"><br><br>
-<button onclick="play('red')">🔴 Red (2x)</button>
-<button onclick="play('green')">🟢 Green (2x)</button>
-<button onclick="play('violet')">🟣 Violet (5x)</button>
+<input id="bet" type="number" placeholder="Bet Amount"><br>
+
+<button class="red" onclick="play('red')">Red (2x)</button>
+<button class="green" onclick="play('green')">Green (2x)</button>
+<button class="violet" onclick="play('violet')">Violet (5x)</button>
 
 <p id="res"></p>
 <a href="games.html">⬅ Back</a>
+</div>
 
 <script src="firebase.js"></script>
 <script>
 let uid;
-
 firebase.auth().onAuthStateChanged(u=>{
-  uid=u.uid;
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s=>bal.innerText=s.val());
+ uid=u.uid;
+ firebase.database().ref("users/"+uid+"/balance")
+ .on("value",s=>bal.innerText=s.val());
 });
 
-function play(choice){
-  let betAmt = Number(bet.value);
-  let colors = ["red","green","violet","red","green"];
-  let result = colors[Math.floor(Math.random()*5)];
-
-  let ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value", s=>{
-    let bal = s.val();
-    if(bal < betAmt) return alert("Low balance");
-
-    if(choice === result){
-      let win = choice==="violet" ? betAmt*5 : betAmt*2;
-      ref.set(bal + win);
-      res.innerText="🎉 "+result+" WIN ₹"+win;
-    } else {
-      ref.set(bal - betAmt);
-      res.innerText="❌ Result: "+result;
-    }
-  });
+function play(c){
+ let b=Number(bet.value);
+ let r=["red","green","violet","red","green"][Math.floor(Math.random()*5)];
+ let ref=firebase.database().ref("users/"+uid+"/balance");
+ ref.once("value",s=>{
+  let bal=s.val();
+  if(bal<b) return alert("Low balance");
+  if(c===r){
+   let win=c==="violet"?b*5:b*2;
+   ref.set(bal+win);
+   res.innerText="🎉 "+r+" WON ₹"+win;
+  }else{
+   ref.set(bal-b);
+   res.innerText="❌ Result "+r;
+  }
+ });
 }
 </script>
 
