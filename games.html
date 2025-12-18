@@ -1,44 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Games</title>
+<title>Games</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>🎮 Welcome to Lottery Games</h2>
-<p>Balance: ₹<span id="bal">0</span></p>
+<div class="card">
+<h2>🎮 Casino Games</h2>
 
-<a href="dice.html">🎲 Play Dice</a><br><br>
-<a href="coinflip.html">🪙 Play Coin Flip</a><br><br>
-<a href="mines.html">💣 Mines</a><br><br>
-<a href="colorbet.html">🎨 Color Bet</a><br><br>
-<a href="aviator.html">✈️ Aviator</a><br><br>
+<a class="game-link" href="mines.html">💣 Mines</a>
+<a class="game-link" href="colorbet.html">🎨 Color Bet</a>
+<a class="game-link" href="aviator.html">✈️ Aviator</a>
 
-<button onclick="logout()">Logout</button>
-
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<script src="firebase.js"></script>
-
-<script>
-firebase.auth().onAuthStateChanged(user => {
-  if(!user){
-    window.location.href = "index.html";
-    return;
-  }
-
-  firebase.database().ref("users/"+user.uid+"/balance")
-    .on("value", snap => {
-      bal.innerText = snap.val();
-    });
-});
-
-function logout(){
-  firebase.auth().signOut();
-  location.href = "index.html";
-}
-</script>
+<a href="user.html">⬅ Wallet</a>
+</div>
 
 </body>
 </html>
