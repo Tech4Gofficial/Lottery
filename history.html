@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Transaction History</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+<h2>📜 Transaction History</h2>
+
+<h3>💰 Deposits</h3>
+<div id="dep"></div>
+
+<h3>💸 Withdrawals</h3>
+<div id="wit"></div>
+
+<a href="games.html">⬅ Back</a>
+</div>
+
+<script src="firebase.js"></script>
+<script>
+let uid;
+
+firebase.auth().onAuthStateChanged(u=>{
+ uid=u.uid;
+ loadDeposits();
+ loadWithdraws();
+});
+
+function loadDeposits(){
+ firebase.database().ref("deposits/"+uid).on("value", s=>{
+  dep.innerHTML="";
+  s.forEach(r=>{
+   dep.innerHTML += `
+    <div>
+     ₹${r.val().amount} |
+     ${r.val().status}
+    </div>
+   `;
+  });
+ });
+}
+
+function loadWithdraws(){
+ firebase.database().ref("withdraws/"+uid).on("value", s=>{
+  wit.innerHTML="";
+  s.forEach(r=>{
+   wit.innerHTML += `
+    <div>
+     ₹${r.val().amount} |
+     ${r.val().status}
+    </div>
+   `;
+  });
+ });
+}
+</script>
+
+</body>
+</html>
