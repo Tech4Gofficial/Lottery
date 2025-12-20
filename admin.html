@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Panel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="card">
+<h2>👑 Admin Panel</h2>
+<p id="status">Loading...</p>
+
+<h3>💰 Deposit Requests</h3>
+<div id="deposits"></div>
+
+<h3>💸 Withdraw Requests</h3>
+<div id="withdraws"></div>
+
+</div>
+
+<script src="firebase.js"></script>
+<script>
+let adminUid;
+
+firebase.auth().onAuthStateChanged(u=>{
+ if(!u) return location="index.html";
+
+ adminUid = u.uid;
+ firebase.database().ref("users/"+adminUid+"/role")
+ .once("value", s=>{
+   if(s.val() !== "admin") return alert("Not admin");
+   loadDeposits();
+   loadWithdraws();
+ });
+});
+
+function loadDeposits(){
+ firebase.database().ref("deposits").on("value", snap=>{
+  deposits.innerHTML="";
+  snap.forEach(user=>{
+   user.forEach(req=>{
+    if(req.val().status==="pending"){
+     deposits.innerHTML += `
+      <div>
+       UID: ${user.key}<br>
+       Amount: ₹${req.val().amount}<br>
+       UTR: ${req.val().utr}<br>
+       <button onclick="approveDeposit('${user.key}','${req.key}',${req.val().amount})">Approve</button>
+      </div><hr>
+     `;
+    }
+   });
+  });
+ });
+}
+
+function approveDeposit(uid,id,amt){
+ let balRef = firebase.database().ref("users/"+uid+"/balance");
+ balRef.once("value", s=>{
+  balRef.set((s.val()||0) + amt);
+  firebase.database().ref("deposits/"+uid+"/"+id+"/status").set("approved");
+ });
+}
+
+function loadWithdraws(){
+ firebase.database().ref("withdraws").on("value", snap=>{
+  withdraws.innerHTML="";
+  snap.forEach(user=>{
+   user.forEach(req=>{
+    if(req.val().status==="pending"){
+     withdraws.innerHTML += `
+      <div>
+       UID: ${user.key}<br>
+       Amount: ₹${req.val().amount}<br>
+       UPI: ${req.val().upi}<br>
+       <button onclick="approveWithdraw('${user.key}','${req.key}',${req.val().amount})">Approve</button>
+      </div><hr>
+     `;
+    }
+   });
+  });
+ });
+}
+
+function approveWithdraw(uid,id,amt){
+ let balRef = firebase.database().ref("users/"+uid+"/balance");
+ balRef.once("value", s=>{
+  balRef.set(s.val() - amt);
+  firebase.database().ref("withdraws/"+uid+"/"+id+"/status").set("approved");
+ });
+}
+</script>
+
+</body>
+</html>
