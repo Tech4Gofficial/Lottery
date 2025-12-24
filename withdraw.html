@@ -2,21 +2,54 @@
 <html>
 <head>
   <title>Withdraw</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <style>
+    body {
+      background: #0f172a;
+      font-family: Arial;
+      color: white;
+    }
+    .box {
+      max-width: 400px;
+      margin: 80px auto;
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      background: #22c55e;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    a {
+      color: #38bdf8;
+      display: block;
+      margin-top: 15px;
+      text-decoration: none;
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="card">
+<div class="box">
   <h2>💸 Withdraw</h2>
 
-  <p class="balance">
-    Balance ₹<span id="bal">0</span>
-  </p>
+  <h3>Balance: ₹<span id="bal">0</span></h3>
 
-  <input id="upi" placeholder="Enter UPI ID"><br>
-  <input id="amount" type="number" placeholder="Withdraw Amount"><br>
+  <input id="upi" placeholder="Enter UPI ID">
+  <input id="amount" type="number" placeholder="Withdraw Amount">
 
-  <button onclick="submitWithdraw()">Withdraw</button>
+  <button onclick="withdraw()">Submit Withdraw</button>
 
   <p id="msg"></p>
 
@@ -28,32 +61,29 @@
 
 <script>
 let uid = null;
+let currentBalance = 0;
 
-/* ------------------------------
-   AUTH & LOAD USER DATA
---------------------------------*/
 firebase.auth().onAuthStateChanged(user => {
   if (!user) {
-    alert("Please login first");
+    alert("Login first");
     location.href = "index.html";
     return;
   }
 
   uid = user.uid;
+  console.log("Logged UID:", uid);
 
-  // Listen to user data (balance + upi)
-  firebase.database().ref("users/" + uid).on("value", snapshot => {
-    const data = snapshot.val();
+  // READ USER DATA
+  firebase.database().ref("users/" + uid).on("value", snap => {
+    const data = snap.val();
+    console.log("User data:", data);
 
-    if (!data) {
-      bal.innerText = 0;
-      return;
-    }
+    if (!data) return;
 
-    // Show balance
-    bal.innerText = data.balance ?? 0;
+    currentBalance = Number(data.balance || 0);
+    document.getElementById("bal").innerText = currentBalance;
 
-    // Lock UPI if already saved
+    // Lock UPI if exists
     if (data.upi) {
       upi.value = data.upi;
       upi.disabled = true;
@@ -61,52 +91,44 @@ firebase.auth().onAuthStateChanged(user => {
   });
 });
 
-/* ------------------------------
-   SUBMIT WITHDRAW REQUEST
---------------------------------*/
-function submitWithdraw() {
-  const withdrawAmt = Number(amount.value);
+function withdraw() {
+  const amt = Number(amount.value);
   const upiId = upi.value.trim();
+  const msg = document.getElementById("msg");
 
   msg.innerText = "";
 
-  // Validation
   if (!upiId || !upiId.includes("@")) {
-    msg.innerText = "❌ Enter a valid UPI ID";
+    msg.innerText = "❌ Enter valid UPI ID";
     return;
   }
 
-  if (withdrawAmt < 110 || withdrawAmt > 5000) {
-    msg.innerText = "❌ Withdraw amount must be ₹110 – ₹5000";
+  if (amt < 110 || amt > 5000) {
+    msg.innerText = "❌ Withdraw ₹110 – ₹5000 only";
     return;
   }
 
-  // Check balance
-  firebase.database().ref("users/" + uid + "/balance").once("value", snap => {
-    const currentBalance = snap.val() || 0;
+  if (amt > currentBalance) {
+    msg.innerText = "❌ Insufficient balance";
+    return;
+  }
 
-    if (currentBalance < withdrawAmt) {
-      msg.innerText = "❌ Insufficient balance";
-      return;
+  // Save UPI only once
+  firebase.database().ref("users/" + uid + "/upi").once("value", s => {
+    if (!s.exists()) {
+      firebase.database().ref("users/" + uid + "/upi").set(upiId);
     }
 
-    // Save UPI ONLY ONCE
-    firebase.database().ref("users/" + uid + "/upi").once("value", s => {
-      if (!s.exists()) {
-        firebase.database().ref("users/" + uid + "/upi").set(upiId);
-      }
-
-      // Create withdraw request
-      firebase.database().ref("withdraws/" + uid).push({
-        amount: withdrawAmt,
-        upi: upiId,
-        status: "pending",
-        time: Date.now()
-      });
-
-      msg.innerText = "✅ Withdraw request submitted (Pending)";
-      amount.value = "";
+    // Create withdraw request
+    firebase.database().ref("withdraws/" + uid).push({
+      amount: amt,
+      upi: upiId,
+      status: "pending",
+      time: Date.now()
     });
+
+    msg.innerText = "✅ Withdraw request submitted (Pending)";
+    amount.value = "";
   });
 }
 </script>
