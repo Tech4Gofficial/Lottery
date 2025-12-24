@@ -1,71 +1,113 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Withdraw</title>
-<link rel="stylesheet" href="style.css">
+  <title>Withdraw</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-<h2>💸 Withdraw</h2>
+  <h2>💸 Withdraw</h2>
 
-<p class="balance">Balance ₹<span id="bal">0</span></p>
+  <p class="balance">
+    Balance ₹<span id="bal">0</span>
+  </p>
 
-<input id="upi" placeholder="Enter UPI ID"><br>
-<input id="amount" type="number" placeholder="Withdraw Amount"><br>
+  <input id="upi" placeholder="Enter UPI ID"><br>
+  <input id="amount" type="number" placeholder="Withdraw Amount"><br>
 
-<button onclick="submitWithdraw()">Withdraw</button>
+  <button onclick="submitWithdraw()">Withdraw</button>
 
-<p id="msg"></p>
-<a href="games.html">⬅ Back</a>
+  <p id="msg"></p>
+
+  <a href="games.html">⬅ Back</a>
 </div>
 
+<!-- Firebase -->
 <script src="firebase.js"></script>
+
 <script>
-let uid, fixedUpi=null;
+let uid = null;
 
-firebase.auth().onAuthStateChanged(u=>{
- if(!u) location="index.html";
- uid=u.uid;
-
- firebase.database().ref("users/"+uid).once("value", s=>{
-  bal.innerText = s.val().balance || 0;
-  if(s.val().upi){
-   fixedUpi = s.val().upi;
-   upi.value = fixedUpi;
-   upi.disabled = true;
+/* ------------------------------
+   AUTH & LOAD USER DATA
+--------------------------------*/
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) {
+    alert("Please login first");
+    location.href = "index.html";
+    return;
   }
- });
+
+  uid = user.uid;
+
+  // Listen to user data (balance + upi)
+  firebase.database().ref("users/" + uid).on("value", snapshot => {
+    const data = snapshot.val();
+
+    if (!data) {
+      bal.innerText = 0;
+      return;
+    }
+
+    // Show balance
+    bal.innerText = data.balance ?? 0;
+
+    // Lock UPI if already saved
+    if (data.upi) {
+      upi.value = data.upi;
+      upi.disabled = true;
+    }
+  });
 });
 
-function submitWithdraw(){
- let amt = Number(amount.value);
- let upiId = upi.value.trim();
+/* ------------------------------
+   SUBMIT WITHDRAW REQUEST
+--------------------------------*/
+function submitWithdraw() {
+  const withdrawAmt = Number(amount.value);
+  const upiId = upi.value.trim();
 
- if(amt < 110 || amt > 5000)
-  return msg.innerText="❌ Withdraw must be ₹110–₹5000";
+  msg.innerText = "";
 
- if(!upiId.includes("@"))
-  return msg.innerText="❌ Invalid UPI ID";
-
- firebase.database().ref("users/"+uid+"/balance").once("value", s=>{
-  if(s.val() < amt)
-   return msg.innerText="❌ Insufficient balance";
-
-  if(!fixedUpi){
-   firebase.database().ref("users/"+uid+"/upi").set(upiId);
+  // Validation
+  if (!upiId || !upiId.includes("@")) {
+    msg.innerText = "❌ Enter a valid UPI ID";
+    return;
   }
 
-  firebase.database().ref("withdraws/"+uid).push({
-   amount: amt,
-   upi: upiId,
-   status: "pending",
-   time: Date.now()
-  });
+  if (withdrawAmt < 110 || withdrawAmt > 5000) {
+    msg.innerText = "❌ Withdraw amount must be ₹110 – ₹5000";
+    return;
+  }
 
-  msg.innerText="✅ Withdraw request submitted";
-  amount.value="";
- });
+  // Check balance
+  firebase.database().ref("users/" + uid + "/balance").once("value", snap => {
+    const currentBalance = snap.val() || 0;
+
+    if (currentBalance < withdrawAmt) {
+      msg.innerText = "❌ Insufficient balance";
+      return;
+    }
+
+    // Save UPI ONLY ONCE
+    firebase.database().ref("users/" + uid + "/upi").once("value", s => {
+      if (!s.exists()) {
+        firebase.database().ref("users/" + uid + "/upi").set(upiId);
+      }
+
+      // Create withdraw request
+      firebase.database().ref("withdraws/" + uid).push({
+        amount: withdrawAmt,
+        upi: upiId,
+        status: "pending",
+        time: Date.now()
+      });
+
+      msg.innerText = "✅ Withdraw request submitted (Pending)";
+      amount.value = "";
+    });
+  });
 }
 </script>
 
