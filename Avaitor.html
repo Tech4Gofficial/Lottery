@@ -3,62 +3,88 @@
 <head>
 <title>Aviator</title>
 <link rel="stylesheet" href="style.css">
-
 <style>
-#curve {
+body{
+  background:#0f172a;
+  color:white;
+  font-family:Arial;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.card{
   background:#020617;
+  padding:20px;
+  border-radius:12px;
+  width:320px;
+  text-align:center;
+  box-shadow:0 0 20px rgba(0,255,255,.2);
+}
+#curve{
+  height:120px;
+  background:linear-gradient(135deg,#22c55e,#0ea5e9);
   border-radius:8px;
-  margin:10px auto;
-  display:block;
+  margin:10px 0;
+  position:relative;
+  overflow:hidden;
 }
-#plane {
-  font-size:20px;
-  color:#22c55e;
-  position: relative;
-  height: 0;
+#plane{
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  font-size:24px;
+  transition:transform .1s linear;
 }
-#bots {
-  background:#020617;
-  padding:6px;
-  border-radius:6px;
-  font-size:13px;
-  height:80px;
-  overflow-y:auto;
-  margin-top:8px;
+#multi{
+  font-size:28px;
+  margin:10px 0;
 }
-.crash {
+.crash{
   color:red;
+  animation:shake .3s infinite;
 }
+@keyframes shake{
+  0%{transform:translateX(0)}
+  25%{transform:translateX(2px)}
+  50%{transform:translateX(-2px)}
+}
+input,button{
+  width:90%;
+  padding:8px;
+  margin:6px 0;
+  border-radius:6px;
+  border:none;
+}
+button{
+  background:#22c55e;
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover{opacity:.85}
 </style>
 </head>
 
 <body>
-
 <div class="card">
 <h2>✈️ Aviator</h2>
-<p>Balance: ₹<span id="bal">0</span></p>
+<p>Balance ₹<span id="bal">0</span></p>
 
-<input type="number" id="bet" value="10" placeholder="Bet Amount"><br>
-
-<input type="number" id="autoVal" step="0.01" placeholder="Auto Cashout (e.g. 1.50)">
-<button onclick="toggleAuto()" id="autoBtn">Auto OFF</button><br><br>
+<input type="number" id="bet" placeholder="Bet Amount" value="10">
+<input type="number" id="auto" placeholder="Auto Cashout (eg 1.50)" step="0.01">
 
 <button onclick="start()">Start</button>
 <button onclick="cashout()">Cashout</button>
 
+<div id="curve">
+  <div id="plane">✈️</div>
+</div>
+
 <div id="multi">1.00x</div>
-
-<!-- PLANE -->
-<div id="plane">✈️</div>
-
-<!-- CURVE -->
-<canvas id="curve" width="280" height="120"></canvas>
-
-<!-- BOTS -->
-<div id="bots"></div>
-
 <p id="msg"></p>
-<a href="games.html">⬅ Back to Games</a><br><br>
+
+<a href="games.html">⬅ Back</a><br><br>
 <button onclick="logout()">Logout</button>
 </div>
 
@@ -69,159 +95,83 @@
 
 <script>
 let uid;
-let multiplier=1;
-let betAmt=0;
+let multiplier = 1;
+let betAmt = 0;
 let interval;
-let crashed=false;
-let gameActive=false;
+let crashed = false;
+let playing = false;
+let adminCrashAt = 999;
 
-/* AUTO CASHOUT */
-let autoEnabled=false;
-let autoCashout=0;
-let cashedOut=false;
-
-/* CURVE + PLANE */
-const canvas=document.getElementById("curve");
-const ctx=canvas.getContext("2d");
-const plane=document.getElementById("plane");
-let x=0,y=canvas.height;
-
-/* BOTS */
-const botNames=["Aman","Rohit","Neha","Karan","Pooja","Vikas","Ankit","Simran"];
-
-/* AUTH */
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user){location.href="index.html";return;}
-  uid=user.uid;
-  const ref=firebase.database().ref("users/"+uid);
+  if(!user){ location.href="index.html"; return; }
+  uid = user.uid;
 
-  ref.child("balance").once("value").then(s=>{
-    if(!s.exists()) ref.set({balance:1020});
-  });
+  firebase.database().ref("users/"+uid+"/balance")
+    .on("value", s => bal.innerText = s.val() || 0);
 
-  ref.child("balance").on("value",s=>{
-    bal.innerText=s.val()!==null?Number(s.val()):0;
-  });
+  firebase.database().ref("admin/crashAt")
+    .on("value", s => {
+      if(s.exists()) adminCrashAt = Number(s.val());
+    });
 });
 
-/* ADMIN CRASH CONTROL */
-firebase.database().ref("admin/crashNow").on("value",snap=>{
-  if(snap.val()===true && gameActive && !crashed){
-    crash();
-    firebase.database().ref("admin/crashNow").set(false);
-  }
-});
-
-/* AUTO CASHOUT */
-function toggleAuto(){
-  if(!autoEnabled){
-    let v=Number(autoVal.value);
-    if(!v||v<1.01) return alert("Min auto 1.01");
-    autoCashout=v;
-    autoEnabled=true;
-    autoBtn.innerText="Auto ON";
-  }else{
-    autoEnabled=false;
-    autoBtn.innerText="Auto OFF";
-  }
-}
-
-/* CURVE FUNCTIONS */
-function resetCurve(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  x=0; y=canvas.height;
-  plane.style.transform="translate(0px,0px)";
-}
-function drawCurve(){
-  x+=2; y-=0.6;
-  if(x>canvas.width) return;
-
-  ctx.strokeStyle=crashed?"red":"#22c55e";
-  ctx.lineWidth=2;
-  ctx.beginPath();
-  ctx.moveTo(x-2,y+0.6);
-  ctx.lineTo(x,y);
-  ctx.stroke();
-
-  plane.style.transform=`translate(${x}px,${y-canvas.height}px)`;
-}
-
-/* BOTS */
-function spawnBots(){
-  bots.innerHTML="";
-  for(let i=0;i<5;i++){
-    let name=botNames[Math.floor(Math.random()*botNames.length)];
-    let cashAt=(Math.random()*3+1.2).toFixed(2);
-    let bet=Math.floor(Math.random()*90+10);
-    let d=document.createElement("div");
-    d.innerText=`${name} bet ₹${bet}`;
-    bots.appendChild(d);
-    setTimeout(()=>{
-      if(!crashed) d.innerText=`${name} cashed out at ${cashAt}x`;
-    },cashAt*800);
-  }
-}
-
-/* START GAME */
 function start(){
-  if(gameActive) return alert("Finish current round");
-  betAmt=Number(bet.value);
+  if(playing) return alert("Game running");
+  betAmt = Number(bet.value);
   if(betAmt<=0) return alert("Invalid bet");
 
-  multiplier=1;
+  playing=true;
   crashed=false;
-  cashedOut=false;
-  gameActive=true;
-
+  multiplier=1;
+  multi.innerText="1.00x";
   msg.innerText="Flying...";
+  plane.style.transform="translate(0,0)";
   multi.classList.remove("crash");
-  clearInterval(interval);
-
-  resetCurve();
-  spawnBots();
 
   interval=setInterval(()=>{
-    multiplier+=0.05;
-    multi.innerText=multiplier.toFixed(2)+"x";
+    multiplier += 0.02;
+    multi.innerText = multiplier.toFixed(2)+"x";
 
-    drawCurve();
+    plane.style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-    if(autoEnabled && !cashedOut && multiplier>=autoCashout){
+    // AUTO CASHOUT
+    let auto = Number(document.getElementById("auto").value);
+    if(auto>1 && multiplier>=auto){
       cashout();
     }
 
-    if(Math.random()<(multiplier/50)) crash();
+    // ADMIN CRASH
+    if(multiplier >= adminCrashAt){
+      crash();
+    }
   },100);
 }
 
-/* CASHOUT */
 function cashout(){
-  if(!gameActive||crashed||cashedOut) return;
-  cashedOut=true;
-  let win=Math.floor(betAmt*multiplier);
-  update(win);
+  if(!playing || crashed) return;
+  let win = Math.floor(betAmt * multiplier);
+  updateBalance(win);
   msg.innerText="✅ Cashed out ₹"+win;
-  gameActive=false;
-  clearInterval(interval);
+  endGame();
 }
 
-/* CRASH */
 function crash(){
   crashed=true;
   multi.classList.add("crash");
   msg.innerText="💥 CRASHED!";
-  bots.innerHTML+="<div>💥 Bots lost</div>";
-  update(-betAmt);
-  gameActive=false;
-  clearInterval(interval);
+  updateBalance(-betAmt);
+  endGame();
 }
 
-/* BALANCE UPDATE */
-function update(amount){
-  firebase.database().ref("users/"+uid+"/balance").once("value")
-  .then(s=>{
-    firebase.database().ref("users/"+uid+"/balance")
-    .set(Number(s.val())+amount);
+function endGame(){
+  clearInterval(interval);
+  playing=false;
+}
+
+function updateBalance(amount){
+  const ref = firebase.database().ref("users/"+uid+"/balance");
+  ref.once("value").then(s=>{
+    ref.set((s.val()||0)+amount);
   });
 }
 
@@ -230,6 +180,5 @@ function logout(){
   location.href="index.html";
 }
 </script>
-
 </body>
 </html>
