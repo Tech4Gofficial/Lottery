@@ -103,18 +103,20 @@ let playing = false;
 let playingAuto = false;
 let adminCrashAt = 999;
 
-// Auth & Balance
-firebase.auth().onAuthStateChanged(user=>{
+// Auth & balance
+firebase.auth().onAuthStateChanged(user => {
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
+  // Balance listener
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", s => bal.innerText = s.val() || 0);
 
+  // Admin crash listener
   firebase.database().ref("admin/crashAt")
     .on("value", s => {
-      if(s.exists()) adminCrashAt = Number(s.val());
-      console.log("Admin crashAt:", adminCrashAt); // debug
+      if(s.exists()) adminCrashAt = parseFloat(s.val());
+      console.log("Admin crashAt:", adminCrashAt);
     });
 });
 
@@ -124,34 +126,34 @@ function start(){
   betAmt = Number(bet.value);
   if(betAmt<=0) return alert("Invalid bet");
 
-  playing=true;
-  crashed=false;
-  playingAuto=false;
-  multiplier=1;
-  multi.innerText="1.00x";
-  msg.innerText="Flying...";
-  plane.style.transform="translate(0,0)";
+  playing = true;
+  crashed = false;
+  playingAuto = false;
+  multiplier = 1;
+  multi.innerText = "1.00x";
+  msg.innerText = "Flying...";
+  plane.style.transform = "translate(0,0)";
   multi.classList.remove("crash");
 
-  interval=setInterval(()=>{
+  interval = setInterval(() => {
     multiplier += 0.02;
-    multi.innerText = multiplier.toFixed(2)+"x";
+    multi.innerText = multiplier.toFixed(2) + "x";
     plane.style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-    // 1️⃣ ADMIN CRASH CHECK FIRST
-    if(!crashed && multiplier.toFixed(2) >= adminCrashAt){
+    // 1️⃣ Admin crash (priority)
+    if(!crashed && multiplier >= adminCrashAt){
       crash();
       return;
     }
 
-    // 2️⃣ AUTO CASHOUT
+    // 2️⃣ Auto cashout
     let auto = Number(document.getElementById("auto").value);
     if(!crashed && !playingAuto && auto > 1 && multiplier >= auto){
       playingAuto = true;
       cashout();
     }
 
-  },100);
+  }, 100);
 }
 
 // Cashout
@@ -159,16 +161,16 @@ function cashout(){
   if(!playing || crashed) return;
   let win = Math.floor(betAmt * multiplier);
   updateBalance(win);
-  msg.innerText="✅ Cashed out ₹"+win;
+  msg.innerText = "✅ Cashed out ₹" + win;
   endGame();
 }
 
 // Crash
 function crash(){
   if(crashed) return;
-  crashed=true;
+  crashed = true;
   multi.classList.add("crash");
-  msg.innerText="💥 CRASHED!";
+  msg.innerText = "💥 CRASHED!";
   updateBalance(-betAmt);
   endGame();
 }
@@ -176,14 +178,14 @@ function crash(){
 // End game
 function endGame(){
   clearInterval(interval);
-  playing=false;
+  playing = false;
 }
 
 // Update Firebase balance
 function updateBalance(amount){
   const ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(s=>{
-    ref.set((s.val()||0)+amount);
+  ref.once("value").then(s => {
+    ref.set((s.val()||0) + amount);
   });
 }
 
