@@ -11,6 +11,11 @@
 <p>Balance: ₹<span id="bal">0</span></p>
 
 <input type="number" id="bet" placeholder="Bet Amount" value="10"><br>
+
+<!-- AUTO CASHOUT -->
+<input type="number" id="autoVal" step="0.01" placeholder="Auto Cashout (e.g. 1.50)"><br>
+<button onclick="toggleAuto()" id="autoBtn">Auto OFF</button><br><br>
+
 <button onclick="start()">Start</button>
 <button onclick="cashout()">Cashout</button>
 
@@ -24,11 +29,22 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
+
 <script>
-let uid, multiplier=1, betAmt=0, interval, crashed=false, gameActive=false;
+let uid;
+let multiplier = 1;
+let betAmt = 0;
+let interval;
+let crashed = false;
+let gameActive = false;
+
+/* AUTO CASHOUT */
+let autoEnabled = false;
+let autoCashout = 0;
+let cashedOut = false;
 
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user){location.href="index.html"; return;}
+  if(!user){ location.href="index.html"; return; }
   uid=user.uid;
   const userRef=firebase.database().ref("users/"+uid);
 
@@ -36,46 +52,81 @@ firebase.auth().onAuthStateChanged(user=>{
     if(!snap.exists()) userRef.set({balance:1020});
   });
 
-  userRef.child("balance").on("value", snap => bal.innerText = snap.val() !== null ? Number(snap.val()) : 0);
+  userRef.child("balance").on("value", snap => {
+    bal.innerText = snap.val() !== null ? Number(snap.val()) : 0;
+  });
 });
+
+/* TOGGLE AUTO CASHOUT */
+function toggleAuto(){
+  if(!autoEnabled){
+    const val = Number(autoVal.value);
+    if(!val || val < 1.01){
+      alert("Enter valid auto cashout (min 1.01)");
+      return;
+    }
+    autoCashout = val;
+    autoEnabled = true;
+    autoBtn.innerText = "Auto ON";
+  } else {
+    autoEnabled = false;
+    autoBtn.innerText = "Auto OFF";
+  }
+}
 
 function start(){
   if(gameActive) return alert("Finish current game!");
-  betAmt=Number(bet.value);
-  if(betAmt<=0) return alert("Enter a valid bet");
-  multiplier=1; crashed=false; gameActive=true;
-  msg.innerText="Flying...";
+  betAmt = Number(bet.value);
+  if(betAmt <= 0) return alert("Enter a valid bet");
+
+  multiplier = 1;
+  crashed = false;
+  cashedOut = false;
+  gameActive = true;
+
+  msg.innerText = "Flying...";
   multi.classList.remove("crash");
   clearInterval(interval);
 
-  interval=setInterval(()=>{
-    multiplier+=0.05;
-    multi.innerText=multiplier.toFixed(2)+"x";
-    if(Math.random()<(multiplier/50)) crash(); 
-  },100);
+  interval = setInterval(()=>{
+    multiplier += 0.05;
+    multi.innerText = multiplier.toFixed(2) + "x";
+
+    // AUTO CASHOUT CHECK
+    if(autoEnabled && !cashedOut && multiplier >= autoCashout){
+      cashout();
+    }
+
+    if(Math.random() < (multiplier / 50)) crash();
+  }, 100);
 }
 
 function cashout(){
-  if(!gameActive || crashed) return;
-  let win=Math.floor(betAmt*multiplier);
+  if(!gameActive || crashed || cashedOut) return;
+
+  cashedOut = true;
+  let win = Math.floor(betAmt * multiplier);
   update(win);
-  msg.innerText="Cashed out ₹"+win;
-  gameActive=false;
+  msg.innerText = "✅ Cashed out ₹" + win;
+  gameActive = false;
   clearInterval(interval);
 }
 
 function crash(){
-  crashed=true;
+  crashed = true;
   multi.classList.add("crash");
-  msg.innerText="💥 CRASHED!";
+  msg.innerText = "💥 CRASHED!";
   update(-betAmt);
-  gameActive=false;
+  gameActive = false;
   clearInterval(interval);
 }
 
 function update(amount){
-  firebase.database().ref("users/"+uid+"/balance").once("value").then(snap=>{
-    firebase.database().ref("users/"+uid+"/balance").set(Number(snap.val())+amount);
+  firebase.database().ref("users/"+uid+"/balance")
+  .once("value")
+  .then(snap=>{
+    firebase.database().ref("users/"+uid+"/balance")
+    .set(Number(snap.val()) + amount);
   });
 }
 
@@ -84,5 +135,6 @@ function logout(){
   location.href="index.html";
 }
 </script>
+
 </body>
 </html>
