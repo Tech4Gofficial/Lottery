@@ -100,8 +100,10 @@ let betAmt = 0;
 let interval;
 let crashed = false;
 let playing = false;
+let playingAuto = false;
 let adminCrashAt = 999;
 
+// Auth & Balance
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
@@ -112,9 +114,11 @@ firebase.auth().onAuthStateChanged(user=>{
   firebase.database().ref("admin/crashAt")
     .on("value", s => {
       if(s.exists()) adminCrashAt = Number(s.val());
+      console.log("Admin crashAt:", adminCrashAt); // debug
     });
 });
 
+// Start game
 function start(){
   if(playing) return alert("Game running");
   betAmt = Number(bet.value);
@@ -122,6 +126,7 @@ function start(){
 
   playing=true;
   crashed=false;
+  playingAuto=false;
   multiplier=1;
   multi.innerText="1.00x";
   msg.innerText="Flying...";
@@ -131,22 +136,25 @@ function start(){
   interval=setInterval(()=>{
     multiplier += 0.02;
     multi.innerText = multiplier.toFixed(2)+"x";
-
     plane.style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-    // AUTO CASHOUT
+    // 1️⃣ ADMIN CRASH CHECK FIRST
+    if(!crashed && multiplier.toFixed(2) >= adminCrashAt){
+      crash();
+      return;
+    }
+
+    // 2️⃣ AUTO CASHOUT
     let auto = Number(document.getElementById("auto").value);
-    if(auto>1 && multiplier>=auto){
+    if(!crashed && !playingAuto && auto > 1 && multiplier >= auto){
+      playingAuto = true;
       cashout();
     }
 
-    // ADMIN CRASH
-    if(multiplier >= adminCrashAt){
-      crash();
-    }
   },100);
 }
 
+// Cashout
 function cashout(){
   if(!playing || crashed) return;
   let win = Math.floor(betAmt * multiplier);
@@ -155,7 +163,9 @@ function cashout(){
   endGame();
 }
 
+// Crash
 function crash(){
+  if(crashed) return;
   crashed=true;
   multi.classList.add("crash");
   msg.innerText="💥 CRASHED!";
@@ -163,11 +173,13 @@ function crash(){
   endGame();
 }
 
+// End game
 function endGame(){
   clearInterval(interval);
   playing=false;
 }
 
+// Update Firebase balance
 function updateBalance(amount){
   const ref = firebase.database().ref("users/"+uid+"/balance");
   ref.once("value").then(s=>{
@@ -175,6 +187,7 @@ function updateBalance(amount){
   });
 }
 
+// Logout
 function logout(){
   firebase.auth().signOut();
   location.href="index.html";
