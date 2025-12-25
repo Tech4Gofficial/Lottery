@@ -3,23 +3,60 @@
 <head>
 <title>Aviator</title>
 <link rel="stylesheet" href="style.css">
+
+<style>
+#curve {
+  background:#020617;
+  border-radius:8px;
+  margin:10px auto;
+  display:block;
+}
+#plane {
+  font-size:20px;
+  color:#22c55e;
+  position: relative;
+  height: 0;
+}
+#bots {
+  background:#020617;
+  padding:6px;
+  border-radius:6px;
+  font-size:13px;
+  height:80px;
+  overflow-y:auto;
+  margin-top:8px;
+}
+.crash {
+  color:red;
+}
+</style>
 </head>
+
 <body>
 
 <div class="card">
 <h2>✈️ Aviator</h2>
 <p>Balance: ₹<span id="bal">0</span></p>
 
-<input type="number" id="bet" placeholder="Bet Amount" value="10"><br>
+<input type="number" id="bet" value="10" placeholder="Bet Amount"><br>
 
-<!-- AUTO CASHOUT -->
-<input type="number" id="autoVal" step="0.01" placeholder="Auto Cashout (e.g. 1.50)"><br>
+<input type="number" id="autoVal" step="0.01" placeholder="Auto Cashout (e.g. 1.50)">
 <button onclick="toggleAuto()" id="autoBtn">Auto OFF</button><br><br>
 
 <button onclick="start()">Start</button>
 <button onclick="cashout()">Cashout</button>
 
 <div id="multi">1.00x</div>
+
+<!-- PLANE -->
+<div id="plane">✈️</div>
+
+<!-- CURVE -->
+<canvas id="curve" width="280" height="120"></canvas>
+
+<!-- BOTS -->
+<div id="bots"></div>
+
 <p id="msg"></p>
 <a href="games.html">⬅ Back to Games</a><br><br>
 <button onclick="logout()">Logout</button>
@@ -32,101 +69,159 @@
 
 <script>
 let uid;
-let multiplier = 1;
-let betAmt = 0;
+let multiplier=1;
+let betAmt=0;
 let interval;
-let crashed = false;
-let gameActive = false;
+let crashed=false;
+let gameActive=false;
 
 /* AUTO CASHOUT */
-let autoEnabled = false;
-let autoCashout = 0;
-let cashedOut = false;
+let autoEnabled=false;
+let autoCashout=0;
+let cashedOut=false;
 
+/* CURVE + PLANE */
+const canvas=document.getElementById("curve");
+const ctx=canvas.getContext("2d");
+const plane=document.getElementById("plane");
+let x=0,y=canvas.height;
+
+/* BOTS */
+const botNames=["Aman","Rohit","Neha","Karan","Pooja","Vikas","Ankit","Simran"];
+
+/* AUTH */
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user){ location.href="index.html"; return; }
+  if(!user){location.href="index.html";return;}
   uid=user.uid;
-  const userRef=firebase.database().ref("users/"+uid);
+  const ref=firebase.database().ref("users/"+uid);
 
-  userRef.child("balance").once("value").then(snap=>{
-    if(!snap.exists()) userRef.set({balance:1020});
+  ref.child("balance").once("value").then(s=>{
+    if(!s.exists()) ref.set({balance:1020});
   });
 
-  userRef.child("balance").on("value", snap => {
-    bal.innerText = snap.val() !== null ? Number(snap.val()) : 0;
+  ref.child("balance").on("value",s=>{
+    bal.innerText=s.val()!==null?Number(s.val()):0;
   });
 });
 
-/* TOGGLE AUTO CASHOUT */
+/* ADMIN CRASH CONTROL */
+firebase.database().ref("admin/crashNow").on("value",snap=>{
+  if(snap.val()===true && gameActive && !crashed){
+    crash();
+    firebase.database().ref("admin/crashNow").set(false);
+  }
+});
+
+/* AUTO CASHOUT */
 function toggleAuto(){
   if(!autoEnabled){
-    const val = Number(autoVal.value);
-    if(!val || val < 1.01){
-      alert("Enter valid auto cashout (min 1.01)");
-      return;
-    }
-    autoCashout = val;
-    autoEnabled = true;
-    autoBtn.innerText = "Auto ON";
-  } else {
-    autoEnabled = false;
-    autoBtn.innerText = "Auto OFF";
+    let v=Number(autoVal.value);
+    if(!v||v<1.01) return alert("Min auto 1.01");
+    autoCashout=v;
+    autoEnabled=true;
+    autoBtn.innerText="Auto ON";
+  }else{
+    autoEnabled=false;
+    autoBtn.innerText="Auto OFF";
   }
 }
 
+/* CURVE FUNCTIONS */
+function resetCurve(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  x=0; y=canvas.height;
+  plane.style.transform="translate(0px,0px)";
+}
+function drawCurve(){
+  x+=2; y-=0.6;
+  if(x>canvas.width) return;
+
+  ctx.strokeStyle=crashed?"red":"#22c55e";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x-2,y+0.6);
+  ctx.lineTo(x,y);
+  ctx.stroke();
+
+  plane.style.transform=`translate(${x}px,${y-canvas.height}px)`;
+}
+
+/* BOTS */
+function spawnBots(){
+  bots.innerHTML="";
+  for(let i=0;i<5;i++){
+    let name=botNames[Math.floor(Math.random()*botNames.length)];
+    let cashAt=(Math.random()*3+1.2).toFixed(2);
+    let bet=Math.floor(Math.random()*90+10);
+    let d=document.createElement("div");
+    d.innerText=`${name} bet ₹${bet}`;
+    bots.appendChild(d);
+    setTimeout(()=>{
+      if(!crashed) d.innerText=`${name} cashed out at ${cashAt}x`;
+    },cashAt*800);
+  }
+}
+
+/* START GAME */
 function start(){
-  if(gameActive) return alert("Finish current game!");
-  betAmt = Number(bet.value);
-  if(betAmt <= 0) return alert("Enter a valid bet");
+  if(gameActive) return alert("Finish current round");
+  betAmt=Number(bet.value);
+  if(betAmt<=0) return alert("Invalid bet");
 
-  multiplier = 1;
-  crashed = false;
-  cashedOut = false;
-  gameActive = true;
+  multiplier=1;
+  crashed=false;
+  cashedOut=false;
+  gameActive=true;
 
-  msg.innerText = "Flying...";
+  msg.innerText="Flying...";
   multi.classList.remove("crash");
   clearInterval(interval);
 
-  interval = setInterval(()=>{
-    multiplier += 0.05;
-    multi.innerText = multiplier.toFixed(2) + "x";
+  resetCurve();
+  spawnBots();
 
-    // AUTO CASHOUT CHECK
-    if(autoEnabled && !cashedOut && multiplier >= autoCashout){
+  interval=setInterval(()=>{
+    multiplier+=0.05;
+    multi.innerText=multiplier.toFixed(2)+"x";
+
+    drawCurve();
+
+    if(autoEnabled && !cashedOut && multiplier>=autoCashout){
       cashout();
     }
 
-    if(Math.random() < (multiplier / 50)) crash();
-  }, 100);
+    if(Math.random()<(multiplier/50)) crash();
+  },100);
 }
 
+/* CASHOUT */
 function cashout(){
-  if(!gameActive || crashed || cashedOut) return;
-
-  cashedOut = true;
-  let win = Math.floor(betAmt * multiplier);
+  if(!gameActive||crashed||cashedOut) return;
+  cashedOut=true;
+  let win=Math.floor(betAmt*multiplier);
   update(win);
-  msg.innerText = "✅ Cashed out ₹" + win;
-  gameActive = false;
+  msg.innerText="✅ Cashed out ₹"+win;
+  gameActive=false;
   clearInterval(interval);
 }
 
+/* CRASH */
 function crash(){
-  crashed = true;
+  crashed=true;
   multi.classList.add("crash");
-  msg.innerText = "💥 CRASHED!";
+  msg.innerText="💥 CRASHED!";
+  bots.innerHTML+="<div>💥 Bots lost</div>";
   update(-betAmt);
-  gameActive = false;
+  gameActive=false;
   clearInterval(interval);
 }
 
+/* BALANCE UPDATE */
 function update(amount){
-  firebase.database().ref("users/"+uid+"/balance")
-  .once("value")
-  .then(snap=>{
+  firebase.database().ref("users/"+uid+"/balance").once("value")
+  .then(s=>{
     firebase.database().ref("users/"+uid+"/balance")
-    .set(Number(snap.val()) + amount);
+    .set(Number(s.val())+amount);
   });
 }
 
