@@ -124,7 +124,7 @@ firebase.auth().onAuthStateChanged(user => {
 function start(){
   if(playing) return alert("Game running");
   betAmt = Number(bet.value);
-  if(betAmt<=0) return alert("Invalid bet");
+  if(betAmt <= 0) return alert("Invalid bet");
 
   playing = true;
   crashed = false;
@@ -140,15 +140,15 @@ function start(){
     multi.innerText = multiplier.toFixed(2) + "x";
     plane.style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-    // 1️⃣ Admin crash (priority)
+    // 1️⃣ Admin crash (highest priority)
     if(!crashed && multiplier >= adminCrashAt){
       crash();
       return;
     }
 
-    // 2️⃣ Auto cashout
+    // 2️⃣ Auto cashout (only below admin crash)
     let auto = Number(document.getElementById("auto").value);
-    if(!crashed && !playingAuto && auto > 1 && multiplier >= auto){
+    if(!crashed && !playingAuto && auto > 1 && auto < adminCrashAt && multiplier >= auto){
       playingAuto = true;
       cashout();
     }
