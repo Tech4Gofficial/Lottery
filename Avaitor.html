@@ -75,7 +75,7 @@ button:hover{opacity:.85}
 <input type="number" id="auto" placeholder="Auto Cashout (eg 1.50)" step="0.01">
 
 <button onclick="start()">Start</button>
-<button onclick="cashout()">Cashout</button>
+<button onclick="cashout(true)">Cashout</button>
 
 <div id="curve">
   <div id="plane">✈️</div>
@@ -108,11 +108,9 @@ firebase.auth().onAuthStateChanged(user => {
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
-  // Balance listener
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", s => bal.innerText = s.val() || 0);
 
-  // Admin crash listener
   firebase.database().ref("admin/crashAt")
     .on("value", s => {
       if(s.exists()) adminCrashAt = parseFloat(s.val());
@@ -150,22 +148,28 @@ function start(){
     let auto = Number(document.getElementById("auto").value);
     if(!crashed && !playingAuto && auto > 1 && auto < adminCrashAt && multiplier >= auto){
       playingAuto = true;
-      cashout();
+      cashout(false); // record auto cashout but DO NOT end game
     }
 
   }, 100);
 }
 
-// Cashout
-function cashout(){
+// Cashout function
+// isManual: true if player clicks cashout, false if auto cashout
+function cashout(isManual = true){
   if(!playing || crashed) return;
   let win = Math.floor(betAmt * multiplier);
   updateBalance(win);
-  msg.innerText = "✅ Cashed out ₹" + win;
-  endGame();
+  if(isManual){
+    msg.innerText = "✅ Cashed out ₹" + win;
+    endGame(); // manual cashout ends game
+  } else {
+    msg.innerText = "✅ Auto cashed out ₹" + win;
+    // Do NOT end game; admin crash can still happen
+  }
 }
 
-// Crash
+// Crash function
 function crash(){
   if(crashed) return;
   crashed = true;
