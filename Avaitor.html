@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Aviator</title>
+
 <style>
 body{
   background:#0f172a;
@@ -16,7 +17,7 @@ body{
   background:#020617;
   padding:20px;
   border-radius:12px;
-  width:330px;
+  width:340px;
   text-align:center;
 }
 #curve{
@@ -31,8 +32,12 @@ body{
   bottom:10px;
   left:10px;
   font-size:24px;
+  transition:transform .1s linear;
 }
-#multi{font-size:28px;margin:10px}
+#multi{
+  font-size:28px;
+  margin:10px;
+}
 .crash{color:red}
 input,button{
   width:90%;
@@ -41,29 +46,35 @@ input,button{
   border-radius:6px;
   border:none;
 }
-button{background:#22c55e;font-weight:bold}
+button{
+  background:#22c55e;
+  font-weight:bold;
+  cursor:pointer;
+}
 .toggle{
   display:flex;
-  align-items:center;
   justify-content:center;
   gap:8px;
+  align-items:center;
 }
 </style>
 </head>
 
 <body>
+
 <div class="card">
 <h2>✈️ Aviator</h2>
+
 <p>Balance ₹<span id="bal">0</span></p>
 
-<input type="number" id="bet" value="10" placeholder="Bet">
+<input type="number" id="bet" value="10" placeholder="Bet Amount">
 
 <div class="toggle">
   <input type="checkbox" id="autoToggle">
   <label>Auto Cashout</label>
 </div>
 
-<input type="number" id="autoValue" step="0.01" placeholder="Auto x (eg 1.50)">
+<input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
 
 <button onclick="start()">Start</button>
 <button onclick="manualCashout()">Cashout</button>
@@ -82,67 +93,86 @@ button{background:#22c55e;font-weight:bold}
 <script src="firebase.js"></script>
 
 <script>
+/* ===== GLOBAL STATE ===== */
 let uid;
-let balance = 0;
 let betAmt = 0;
 let multiplier = 1;
-let interval;
+let interval = null;
 let playing = false;
+let crashed = false;
 let cashedOut = false;
 let adminCrashAt = 999;
 
+/* ===== AUTH & DATA ===== */
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user) return;
-  uid=user.uid;
+  if(!user){ location.href="index.html"; return; }
+  uid = user.uid;
 
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value",s=>bal.innerText=s.val()||0);
+    .on("value", s=>{
+      bal.innerText = s.val() ?? 0;
+    });
 
   firebase.database().ref("admin/crashAt")
-    .on("value",s=>{
-      if(s.exists()) adminCrashAt=parseFloat(s.val());
+    .on("value", s=>{
+      if(s.exists()){
+        adminCrashAt = parseFloat(s.val());
+        console.log("🔥 ADMIN CRASH SET:", adminCrashAt);
+      } else {
+        adminCrashAt = 999;
+      }
     });
 });
 
+/* ===== START GAME ===== */
 function start(){
   if(playing) return;
+
   betAmt = Number(bet.value);
-  if(betAmt<=0) return alert("Invalid bet");
+  if(betAmt <= 0) return alert("Invalid bet");
 
-  playing=true;
-  cashedOut=false;
-  multiplier=1;
-  multi.innerText="1.00x";
-  msg.innerText="Flying...";
+  playing = true;
+  crashed = false;
+  cashedOut = false;
+  multiplier = 1;
+
+  msg.innerText = "Flying...";
+  multi.innerText = "1.00x";
   multi.classList.remove("crash");
+  plane.style.transform = "translate(0,0)";
 
-  interval=setInterval(()=>{
-    multiplier += 0.02;
-    multi.innerText = multiplier.toFixed(2)+"x";
-    plane.style.transform =
-      `translate(${multiplier*15}px,${-multiplier*6}px)`;
-
-    /* 🔥 1️⃣ ADMIN CRASH (TOP PRIORITY) */
-    if(multiplier >= adminCrashAt){
-      crash();
-      return;
-    }
-
-    /* 💰 2️⃣ AUTO CASHOUT */
-    if(
-      !cashedOut &&
-      autoToggle.checked &&
-      Number(autoValue.value)>1 &&
-      multiplier >= Number(autoValue.value)
-    ){
-      doCashout("Auto");
-    }
-
-  },100);
+  interval = setInterval(gameLoop, 100);
 }
 
+/* ===== MAIN GAME LOOP ===== */
+function gameLoop(){
+  multiplier += 0.02;
+  multi.innerText = multiplier.toFixed(2) + "x";
+
+  plane.style.transform =
+    `translate(${multiplier*15}px, ${-multiplier*6}px)`;
+
+  /* 🔥 ADMIN CRASH — HIGHEST PRIORITY */
+  if(!crashed && multiplier >= adminCrashAt){
+    console.log("💥 CRASHED BY ADMIN");
+    crash();
+    return;
+  }
+
+  /* 💰 AUTO CASHOUT */
+  if(
+    !cashedOut &&
+    autoToggle.checked &&
+    Number(autoValue.value) > 1 &&
+    multiplier >= Number(autoValue.value)
+  ){
+    doCashout("Auto");
+  }
+}
+
+/* ===== CASHOUTS ===== */
 function doCashout(type){
-  cashedOut=true;
+  cashedOut = true;
   let win = Math.floor(betAmt * multiplier);
   updateBalance(win);
   msg.innerText = `✅ ${type} Cashout ₹${win}`;
@@ -154,26 +184,32 @@ function manualCashout(){
   endGame();
 }
 
+/* ===== CRASH ===== */
 function crash(){
+  crashed = true;
   multi.classList.add("crash");
-  msg.innerText="💥 CRASHED!";
+  msg.innerText = "💥 CRASHED!";
+
   if(!cashedOut){
     updateBalance(-betAmt);
   }
   endGame();
 }
 
+/* ===== END GAME ===== */
 function endGame(){
   clearInterval(interval);
-  playing=false;
+  playing = false;
 }
 
+/* ===== BALANCE UPDATE ===== */
 function updateBalance(amount){
   const ref = firebase.database().ref("users/"+uid+"/balance");
   ref.once("value").then(s=>{
-    ref.set((s.val()||0)+amount);
+    ref.set((s.val() || 0) + amount);
   });
 }
 </script>
+
 </body>
 </html>
