@@ -1,24 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Admin Dashboard</title>
-<link rel="stylesheet" href="style.css">
+  <title>Admin – Aviator</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-  <h2>🛠 Admin Dashboard</h2>
+  <h2>Admin Dashboard</h2>
 
-  <p>Crash At (x)</p>
-  <input type="number" step="0.01" id="crash">
+  <input type="number" id="crashAt" step="0.01" placeholder="Crash At (eg 1.50)">
+  <button onclick="setCrash()">SET CRASH</button>
 
-  <p>Round Countdown (seconds)</p>
-  <input type="number" id="countdown" value="10">
-
-  <button onclick="startRound()">Start New Round</button>
-  <button onclick="forceCrash()">Force Crash</button>
-
-  <p id="status"></p>
+  <p>Current Crash: <span id="current">—</span></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -26,36 +20,17 @@
 <script src="firebase.js"></script>
 
 <script>
-const adminRef = firebase.database().ref("admin");
+const ref = firebase.database().ref("admin/crashAt");
 
-function startRound(){
-  const crashAt = Number(document.getElementById("crash").value);
-  const cd = Number(document.getElementById("countdown").value);
+ref.on("value", s=>{
+  if(s.exists()) current.innerText = s.val()+"x";
+});
 
-  if(crashAt <= 1 || cd <= 0){
-    alert("Invalid values");
-    return;
-  }
-
-  adminRef.set({
-    crashAt: crashAt,
-    round: {
-      status: "waiting",
-      countdown: cd,
-      roundId: Date.now()
-    }
-  });
-
-  document.getElementById("status").innerText =
-    "✅ New round scheduled";
-}
-
-function forceCrash(){
-  adminRef.child("round/status").set("crashed");
-  document.getElementById("status").innerText =
-    "💥 Forced crash";
+function setCrash(){
+  let val = Number(crashAt.value);
+  if(val <= 1) return alert("Invalid value");
+  ref.set(val);
 }
 </script>
-
 </body>
 </html>
