@@ -14,12 +14,12 @@
 
   <input type="number" id="bet" value="10" placeholder="Bet Amount">
 
-  <div class="toggle">
+  <label>
     <input type="checkbox" id="autoToggle">
-    <label>Auto Cashout</label>
-  </div>
+    Auto Cashout
+  </label>
 
-  <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x" disabled>
+  <input type="number" id="autoValue" step="0.01" placeholder="Auto x (eg 1.50)">
 
   <button id="startBtn" onclick="start()">Start</button>
   <button id="cashoutBtn" onclick="manualCashout()" disabled>Cashout</button>
@@ -38,8 +38,9 @@
 <script src="firebase.js"></script>
 
 <script>
-/* ===== STATE ===== */
+/* ===== GLOBAL STATE ===== */
 let uid;
+let balance = 0;
 let betAmt = 0;
 let multiplier = 1;
 let interval = null;
@@ -48,39 +49,40 @@ let crashed = false;
 let cashedOut = false;
 let adminCrashAt = 999;
 
-/* ===== ENABLE / DISABLE AUTO INPUT ===== */
-autoToggle.addEventListener("change", () => {
-  autoValue.disabled = !autoToggle.checked;
-});
-
 /* ===== AUTH & FIREBASE ===== */
-firebase.auth().onAuthStateChanged(user=>{
-  if(!user){
+firebase.auth().onAuthStateChanged(user => {
+  if (!user) {
     location.href = "index.html";
     return;
   }
+
   uid = user.uid;
 
-  firebase.database().ref("users/"+uid+"/balance")
+  firebase.database().ref("users/" + uid + "/balance")
     .on("value", s => {
-      bal.innerText = s.val() ?? 0;
+      balance = Number(s.val()) || 0;
+      bal.innerText = balance;
     });
 
   firebase.database().ref("admin/crashAt")
     .on("value", s => {
-      if(s.exists()){
-        adminCrashAt = Number(s.val());
+      if (s.exists()) {
+        adminCrashAt = parseFloat(s.val());
         console.log("ADMIN CRASH AT:", adminCrashAt);
       }
     });
 });
 
 /* ===== START GAME ===== */
-function start(){
-  if(playing) return;
+function start() {
+  if (playing) return;
 
   betAmt = Number(bet.value);
-  if(betAmt <= 0) return alert("Invalid bet");
+  if (betAmt <= 0) return alert("Invalid bet");
+  if (betAmt > balance) return alert("Insufficient balance");
+
+  /* Deduct bet first */
+  updateBalance(-betAmt);
 
   playing = true;
   crashed = false;
@@ -89,81 +91,81 @@ function start(){
 
   startBtn.disabled = true;
   cashoutBtn.disabled = false;
-  bet.disabled = true;
 
   msg.innerText = "Flying...";
   multi.innerText = "1.00x";
-
   plane.style.transform = "translate(0,0)";
+  multi.classList.remove("crash");
 
   interval = setInterval(gameLoop, 100);
 }
 
-/* ===== GAME LOOP ===== */
-function gameLoop(){
+/* ===== MAIN GAME LOOP ===== */
+function gameLoop() {
   multiplier += 0.02;
   multi.innerText = multiplier.toFixed(2) + "x";
 
   plane.style.transform =
-    `translate(${multiplier*15}px, ${-multiplier*6}px)`;
+    `translate(${multiplier * 15}px, ${-multiplier * 6}px)`;
 
-  /* 🔥 ADMIN CRASH (TOP PRIORITY) */
-  if(!crashed && multiplier >= adminCrashAt){
+  /* 🔥 ADMIN CRASH — FIRST PRIORITY */
+  if (!crashed && multiplier >= adminCrashAt) {
     crash();
     return;
   }
 
   /* 💰 AUTO CASHOUT */
-  if(
+  if (
     !cashedOut &&
     autoToggle.checked &&
     Number(autoValue.value) > 1 &&
     multiplier >= Number(autoValue.value)
-  ){
+  ) {
     doCashout("Auto");
   }
 }
 
-/* ===== CASHOUT ===== */
-function doCashout(type){
+/* ===== CASHOUT LOGIC ===== */
+function doCashout(type) {
+  if (cashedOut) return;
+
   cashedOut = true;
-  let win = Math.floor(betAmt * multiplier);
-  updateBalance(win);
-  msg.innerText = `✅ ${type} Cashout ₹${win}`;
+
+  /* PROFIT ONLY */
+  let profit = Math.floor(betAmt * (multiplier - 1));
+  updateBalance(betAmt + profit);
+
+  msg.innerText = `✅ ${type} Cashout +₹${profit}`;
 }
 
-function manualCashout(){
-  if(!playing || cashedOut) return;
+/* ===== MANUAL CASHOUT ===== */
+function manualCashout() {
+  if (!playing || cashedOut) return;
   doCashout("Manual");
   endGame();
 }
 
 /* ===== CRASH ===== */
-function crash(){
+function crash() {
   crashed = true;
+  multi.classList.add("crash");
   msg.innerText = "💥 CRASHED!";
-
-  if(!cashedOut){
-    updateBalance(-betAmt);
-  }
   endGame();
 }
 
 /* ===== END GAME ===== */
-function endGame(){
+function endGame() {
   clearInterval(interval);
   playing = false;
-
   startBtn.disabled = false;
   cashoutBtn.disabled = true;
-  bet.disabled = false;
 }
 
-/* ===== BALANCE UPDATE ===== */
-function updateBalance(amount){
-  const ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(s=>{
-    ref.set((s.val() || 0) + amount);
+/* ===== UPDATE BALANCE ===== */
+function updateBalance(amount) {
+  const ref = firebase.database().ref("users/" + uid + "/balance");
+  ref.once("value").then(s => {
+    ref.set((Number(s.val()) || 0) + amount);
   });
 }
 </script>
