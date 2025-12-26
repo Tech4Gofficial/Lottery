@@ -44,10 +44,10 @@ let playing = false;
 let crashed = false;
 let cashedOut = false;
 
-// Admin control
+// Admin controls
 let adminCrashAt = 999;
 let roundId = 1;
-let countdown = 10;
+let localCountdown = 10;
 let status = "waiting";
 
 // ===== AUTH & BALANCE =====
@@ -58,17 +58,17 @@ firebase.auth().onAuthStateChanged(user=>{
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
-  // Read admin once
+  // Read admin values once
   firebase.database().ref("admin").once("value").then(snap=>{
-    if(!snap.exists()) return;
-    const data = snap.val();
-    countdown = data.countdown || 10;
-    roundId = data.roundId || 1;
-    status = data.status || "waiting";
-    adminCrashAt = parseFloat(data.crashAt || 999);
-
-    document.getElementById("countdown").innerText = countdown;
-    document.getElementById("roundId").innerText = roundId;
+    if(snap.exists()){
+      const data = snap.val();
+      localCountdown = data.countdown || 10;
+      roundId = data.roundId || 1;
+      status = data.status || "waiting";
+      adminCrashAt = parseFloat(data.crashAt || 999);
+      document.getElementById("countdown").innerText = localCountdown;
+      document.getElementById("roundId").innerText = roundId;
+    }
   });
 
   // Listen admin crash multiplier changes
@@ -80,15 +80,16 @@ firebase.auth().onAuthStateChanged(user=>{
 // ===== COUNTDOWN TIMER =====
 setInterval(()=>{
   if(status === "waiting"){
-    countdown--;
-    if(countdown <= 0){
-      countdown = 0;
-      document.getElementById("countdown").innerText = countdown;
+    localCountdown--;
+    if(localCountdown <= 0){
+      localCountdown = 0;
+      document.getElementById("countdown").innerText = 0;
       startRound();
     } else {
-      document.getElementById("countdown").innerText = countdown;
+      document.getElementById("countdown").innerText = localCountdown;
     }
-    firebase.database().ref("admin/countdown").set(countdown);
+    // Sync to Firebase without overwriting local countdown
+    firebase.database().ref("admin/countdown").set(localCountdown);
   }
 },1000);
 
@@ -161,13 +162,13 @@ function crash(){
   if(!cashedOut) updateBalance(-betAmt);
   endGame();
 
-  // Reset countdown and next round
-  countdown = 10;
+  // Reset countdown and increment round
+  localCountdown = 10;
   roundId++;
   status = "waiting";
   firebase.database().ref("admin").update({
     roundId: roundId,
-    countdown: countdown,
+    countdown: localCountdown,
     status: status
   });
   document.getElementById("roundId").innerText = roundId;
