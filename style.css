@@ -16,7 +16,11 @@ h2{color:#38bdf8}
   box-shadow:0 0 25px rgba(0,0,0,.6);
 }
 
-.balance{color:#22c55e;font-size:18px;margin-bottom:10px}
+.balance{
+  color:#22c55e;
+  font-size:18px;
+  margin-bottom:10px;
+}
 
 button{
   padding:10px 16px;
@@ -41,65 +45,66 @@ input{
   text-align:center;
 }
 
-a{color:#22d3ee;text-decoration:none;display:block;margin-top:15px}
-
-.game-link{
-  background:#020617;
-  padding:14px;
-  margin:10px auto;
-  max-width:260px;
-  border-radius:10px;
-  color:white;
+a{
+  color:#22d3ee;
+  text-decoration:none;
+  display:block;
+  margin-top:15px;
 }
-.game-link:hover{background:#1e293b}
-
-/* ---- MINES ---- */
-#grid{
-  display:grid;
-  grid-template-columns:repeat(5,60px);
-  gap:10px;
-  justify-content:center;
-  margin:15px 0;
-}
-#grid button{
-  width:60px;height:60px;
-  font-size:22px;
-  background:#1e293b;
-}
-
-@keyframes flip{to{transform:rotateY(180deg)}}
-.safe{background:#16a34a!important;animation:flip .4s}
-.bomb{background:#dc2626!important;animation:flip .4s}
-
-/* ---- COLOR BET ---- */
-.red{background:#dc2626}
-.green{background:#16a34a}
-.violet{background:#7c3aed}
-
-@keyframes flash{
-  0%{opacity:1}50%{opacity:.3}100%{opacity:1}
-}
-.flash{animation:flash .5s ease 3}
 
 /* ---- AVIATOR ---- */
+
+#aviatorBox{
+  background:#020617;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  position:relative;
+  overflow:hidden;
+}
+
+#curve{
+  height:120px;
+  background:linear-gradient(135deg,#16a34a,#0284c7);
+  border-radius:10px;
+  position:relative;
+}
+
+#plane{
+  position:absolute;
+  bottom:10px;
+  left:10px;
+  font-size:24px;
+}
+
 #multi{
   font-size:34px;
   color:#facc15;
+  margin:10px 0;
   animation:fly 1s infinite ease-in-out;
 }
+
 @keyframes fly{
   0%{transform:translateY(0)}
   50%{transform:translateY(-6px)}
   100%{transform:translateY(0)}
 }
+
 .crash{
   color:#ef4444!important;
   animation:shake .4s;
 }
+
 @keyframes shake{
   0%{transform:translateX(0)}
   25%{transform:translateX(-6px)}
   50%{transform:translateX(6px)}
   75%{transform:translateX(-6px)}
   100%{transform:translateX(0)}
+}
+
+.countdown{
+  font-size:18px;
+  color:#38bdf8;
+  margin-top:6px;
 }
