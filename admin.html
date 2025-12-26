@@ -1,18 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin – Aviator</title>
-  <link rel="stylesheet" href="style.css">
+<title>Aviator Admin Dashboard</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-  <h2>Admin Dashboard</h2>
+<h2>🎛 Aviator Admin Dashboard</h2>
 
-  <input type="number" id="crashAt" step="0.01" placeholder="Crash At (eg 1.50)">
-  <button onclick="setCrash()">SET CRASH</button>
+<p>Current Round: <span id="roundId">1</span></p>
+<p>Countdown: <span id="countdown">10</span>s</p>
 
-  <p>Current Crash: <span id="current">—</span></p>
+<div>
+  <label>Crash Multiplier (x):</label><br>
+  <input type="number" step="0.01" id="crashInput" placeholder="1.5">
+  <button onclick="setCrash()">Set Crash</button>
+</div>
+
+<div>
+  <button onclick="forceStart()">Force Start Round</button>
+  <button onclick="forceEnd()">Force End Round</button>
+</div>
+
+<h3>Users</h3>
+<div id="usersList"></div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -20,16 +32,70 @@
 <script src="firebase.js"></script>
 
 <script>
-const ref = firebase.database().ref("admin/crashAt");
+const roundEl = document.getElementById("roundId");
+const countdownEl = document.getElementById("countdown");
+const usersList = document.getElementById("usersList");
+const crashInput = document.getElementById("crashInput");
 
-ref.on("value", s=>{
-  if(s.exists()) current.innerText = s.val()+"x";
+// Listen to admin node
+firebase.database().ref("admin").on("value", snap=>{
+  if(snap.exists()){
+    const data = snap.val();
+    roundEl.innerText = data.roundId || 1;
+    countdownEl.innerText = data.countdown || 10;
+    crashInput.value = data.crashAt || 1.5;
+  }
 });
 
+// Listen to users
+firebase.database().ref("users").on("value", snap=>{
+  usersList.innerHTML = "";
+  if(snap.exists()){
+    snap.forEach(user=>{
+      const u = user.val();
+      const div = document.createElement("div");
+      div.innerHTML = `${u.email} - Balance: ₹${u.balance} 
+        <button onclick="setBalance('${user.key}')">Set Balance</button>`;
+      usersList.appendChild(div);
+    });
+  }
+});
+
+// Set admin crash
 function setCrash(){
-  let val = Number(crashAt.value);
-  if(val <= 1) return alert("Invalid value");
-  ref.set(val);
+  const crashVal = parseFloat(crashInput.value);
+  if(isNaN(crashVal) || crashVal<=1) return alert("Enter valid crash x");
+  firebase.database().ref("admin/crashAt").set(crashVal);
+  alert("Crash multiplier set to "+crashVal+"x");
+}
+
+// Force start round
+function forceStart(){
+  firebase.database().ref("admin").update({
+    status:"flying",
+    countdown:0
+  });
+  alert("Round forced to start!");
+}
+
+// Force end round
+function forceEnd(){
+  firebase.database().ref("admin").update({
+    status:"crashed",
+    countdown:10,
+    roundId: firebase.database.ServerValue.increment(1)
+  });
+  alert("Round ended!");
+}
+
+// Set user balance
+function setBalance(uid){
+  const val = prompt("Enter new balance");
+  if(val!==null){
+    const num = parseInt(val);
+    if(isNaN(num)) return alert("Invalid number");
+    firebase.database().ref("users/"+uid+"/balance").set(num);
+  }
 }
 </script>
 </body>
