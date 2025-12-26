@@ -55,10 +55,11 @@ firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
+  // Balance listener
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
-  // Load admin data once
+  // Load admin info once
   firebase.database().ref("admin").once("value").then(snap=>{
     if(snap.exists()){
       const data = snap.val();
@@ -72,7 +73,7 @@ firebase.auth().onAuthStateChanged(user=>{
     }
   });
 
-  // Listen crash multiplier changes
+  // Listen admin crash multiplier changes
   firebase.database().ref("admin/crashAt").on("value", snap=>{
     if(snap.exists()) adminCrashAt = parseFloat(snap.val());
   });
@@ -89,7 +90,7 @@ setInterval(()=>{
     } else {
       document.getElementById("countdown").innerText = localCountdown;
     }
-    // Update Firebase (only for admin dashboard, not for reading)
+    // Update Firebase for admin only
     firebase.database().ref("admin/countdown").set(localCountdown);
   }
 },1000);
