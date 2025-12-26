@@ -14,15 +14,15 @@
 
   <input type="number" id="bet" value="10" placeholder="Bet Amount">
 
-  <label>
+  <div class="toggle">
     <input type="checkbox" id="autoToggle">
-    Auto Cashout
-  </label>
+    <label>Auto Cashout</label>
+  </div>
 
-  <input type="number" id="autoValue" step="0.01" placeholder="Auto x (eg 1.50)">
+  <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
 
-  <button id="startBtn" onclick="start()">Start</button>
-  <button id="cashoutBtn" onclick="manualCashout()" disabled>Cashout</button>
+  <button onclick="start()">Start</button>
+  <button onclick="manualCashout()">Cashout</button>
 
   <div id="curve">
     <div id="plane">✈️</div>
@@ -38,35 +38,29 @@
 <script src="firebase.js"></script>
 
 <script>
-/* ===== GLOBAL STATE ===== */
+/* ===== STATE ===== */
 let uid;
-let balance = 0;
 let betAmt = 0;
-let multiplier = 1;
+let multiplier = 1.00;
 let interval = null;
 let playing = false;
 let crashed = false;
 let cashedOut = false;
 let adminCrashAt = 999;
 
-/* ===== AUTH & FIREBASE ===== */
-firebase.auth().onAuthStateChanged(user => {
-  if (!user) {
-    location.href = "index.html";
-    return;
-  }
-
+/* ===== AUTH & DATA ===== */
+firebase.auth().onAuthStateChanged(user=>{
+  if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
-  firebase.database().ref("users/" + uid + "/balance")
+  firebase.database().ref("users/"+uid+"/balance")
     .on("value", s => {
-      balance = Number(s.val()) || 0;
-      bal.innerText = balance;
+      bal.innerText = s.val() ?? 0;
     });
 
   firebase.database().ref("admin/crashAt")
     .on("value", s => {
-      if (s.exists()) {
+      if(s.exists()){
         adminCrashAt = parseFloat(s.val());
         console.log("ADMIN CRASH AT:", adminCrashAt);
       }
@@ -74,79 +68,71 @@ firebase.auth().onAuthStateChanged(user => {
 });
 
 /* ===== START GAME ===== */
-function start() {
-  if (playing) return;
+function start(){
+  if(playing) return;
 
   betAmt = Number(bet.value);
-  if (betAmt <= 0) return alert("Invalid bet");
-  if (betAmt > balance) return alert("Insufficient balance");
-
-  /* Deduct bet first */
-  updateBalance(-betAmt);
+  if(betAmt <= 0) return alert("Invalid bet");
 
   playing = true;
   crashed = false;
   cashedOut = false;
-  multiplier = 1;
-
-  startBtn.disabled = true;
-  cashoutBtn.disabled = false;
+  multiplier = 1.00;
 
   msg.innerText = "Flying...";
   multi.innerText = "1.00x";
   plane.style.transform = "translate(0,0)";
   multi.classList.remove("crash");
 
-  interval = setInterval(gameLoop, 100);
+  interval = setInterval(gameLoop, 150); // ⬅ SLOWER SPEED
 }
 
-/* ===== MAIN GAME LOOP ===== */
-function gameLoop() {
-  multiplier += 0.02;
+/* ===== GAME LOOP ===== */
+function gameLoop(){
+  multiplier += 0.01; // ⬅ SLOWER MULTIPLIER
+  multiplier = Number(multiplier.toFixed(2));
+
   multi.innerText = multiplier.toFixed(2) + "x";
-
   plane.style.transform =
-    `translate(${multiplier * 15}px, ${-multiplier * 6}px)`;
+    `translate(${multiplier * 10}px, ${-multiplier * 4}px)`;
 
-  /* 🔥 ADMIN CRASH — FIRST PRIORITY */
-  if (!crashed && multiplier >= adminCrashAt) {
+  /* 🔥 ADMIN CRASH (TOP PRIORITY) */
+  if(!crashed && multiplier >= adminCrashAt){
     crash();
     return;
   }
 
   /* 💰 AUTO CASHOUT */
-  if (
+  if(
     !cashedOut &&
     autoToggle.checked &&
     Number(autoValue.value) > 1 &&
     multiplier >= Number(autoValue.value)
-  ) {
+  ){
     doCashout("Auto");
   }
 }
 
-/* ===== CASHOUT LOGIC ===== */
-function doCashout(type) {
-  if (cashedOut) return;
-
+/* ===== CASHOUT ===== */
+function doCashout(type){
   cashedOut = true;
 
-  /* PROFIT ONLY */
   let profit = Math.floor(betAmt * (multiplier - 1));
-  updateBalance(betAmt + profit);
+  if(profit < 0) profit = 0;
 
-  msg.innerText = `✅ ${type} Cashout +₹${profit}`;
+  updateBalance(profit);
+  msg.innerText = `✅ ${type} Cashout ₹${profit}`;
 }
 
 /* ===== MANUAL CASHOUT ===== */
-function manualCashout() {
-  if (!playing || cashedOut) return;
+function manualCashout(){
+  if(!playing || cashedOut) return;
   doCashout("Manual");
   endGame();
 }
 
 /* ===== CRASH ===== */
-function crash() {
+function crash(){
   crashed = true;
   multi.classList.add("crash");
   msg.innerText = "💥 CRASHED!";
@@ -154,18 +140,16 @@ function crash() {
 }
 
 /* ===== END GAME ===== */
-function endGame() {
+function endGame(){
   clearInterval(interval);
   playing = false;
-  startBtn.disabled = false;
-  cashoutBtn.disabled = true;
 }
 
-/* ===== UPDATE BALANCE ===== */
-function updateBalance(amount) {
-  const ref = firebase.database().ref("users/" + uid + "/balance");
-  ref.once("value").then(s => {
-    ref.set((Number(s.val()) || 0) + amount);
+/* ===== BALANCE UPDATE ===== */
+function updateBalance(amount){
+  const ref = firebase.database().ref("users/"+uid+"/balance");
+  ref.once("value").then(s=>{
+    ref.set((s.val() || 0) + amount);
   });
 }
 </script>
