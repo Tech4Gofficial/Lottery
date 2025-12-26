@@ -1,37 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Aviator</title>
-  <link rel="stylesheet" href="style.css">
+<title>Aviator</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-  <h2>✈️ Aviator</h2>
+<h2>✈️ Aviator</h2>
 
-  <div class="balance">
-    Balance ₹<span id="bal">0</span>
-  </div>
+<p>Balance ₹<span id="bal">0</span></p>
+<p>Round: <span id="roundId">1</span></p>
+<p>Countdown: <span id="countdown">0</span>s</p>
 
-  <input type="number" id="bet" value="100" placeholder="Bet Amount">
+<input type="number" id="bet" value="10" placeholder="Bet Amount">
+<div>
+  <input type="checkbox" id="autoToggle"><label>Auto Cashout</label>
+  <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
+</div>
 
-  <div>
-    <input type="checkbox" id="autoToggle"> Auto Cashout
-  </div>
+<button onclick="startGame()">Start</button>
+<button onclick="manualCashout()">Cashout</button>
 
-  <input type="number" id="autoValue" step="0.01" placeholder="Auto x (eg 1.50)">
+<div id="curve">
+  <div id="plane">✈️</div>
+</div>
 
-  <div>
-    <button id="startBtn" onclick="startGame()">BET</button>
-    <button id="cashoutBtn" onclick="manualCashout()" disabled>CASHOUT</button>
-  </div>
-
-  <div id="multi">1.00x</div>
-  <div id="msg"></div>
-
-  <div id="round">Next round in <span id="count">5</span>s</div>
-
-  <a href="games.html">⬅ Back</a>
+<div id="multi">1.00x</div>
+<p id="msg"></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -44,123 +40,132 @@ let uid;
 let balance = 0;
 let betAmt = 0;
 let multiplier = 1;
-let timer = null;
+let interval = null;
 let playing = false;
 let crashed = false;
 let cashedOut = false;
-let adminCrashAt = 999;
-let roundCountdown = 5;
-let speed = 0.01; // slower speed (IMPORTANT FIX)
 
-// ---------- AUTH ----------
+let adminCrashAt = 999;
+let roundId = 1;
+let countdown = 0;
+
+/* ===== AUTH & BALANCE ===== */
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
-  uid = user.uid;
+  uid=user.uid;
 
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s => {
-      balance = s.val() || 0;
-      bal.innerText = balance;
-    });
+    .on("value", s=>bal.innerText = s.val() ?? 0);
 
-  firebase.database().ref("admin/crashAt")
-    .on("value", s => {
-      if(s.exists()) adminCrashAt = Number(s.val());
-    });
+  // Read admin data
+  firebase.database().ref("admin").on("value", snap=>{
+    if(snap.exists()){
+      const data = snap.val();
+      adminCrashAt = parseFloat(data.crashAt || 999);
+      roundId = data.roundId || 1;
+      countdown = data.countdown || 10;
+      document.getElementById("roundId").innerText = roundId;
+      document.getElementById("countdown").innerText = countdown;
+    }
+  });
 });
 
-// ---------- ROUND COUNTDOWN ----------
-function startCountdown(){
-  count.innerText = roundCountdown;
-  const cd = setInterval(()=>{
-    roundCountdown--;
-    count.innerText = roundCountdown;
-    if(roundCountdown === 0){
-      clearInterval(cd);
-      roundCountdown = 5;
-      startBtn.disabled = false;
-    }
-  },1000);
-}
+/* ===== COUNTDOWN TIMER ===== */
+setInterval(()=>{
+  if(countdown > 0){
+    countdown -= 1;
+    document.getElementById("countdown").innerText = countdown;
+    firebase.database().ref("admin/countdown").set(countdown);
+  } else if(!playing){
+    // Start new round automatically
+    firebase.database().ref("admin/status").set("flying");
+    startGame();
+  }
+}, 1000);
 
-// ---------- START GAME ----------
+/* ===== START GAME ===== */
 function startGame(){
-  betAmt = Number(bet.value);
-  if(betAmt <= 0 || betAmt > balance) return alert("Invalid bet");
+  if(playing) return;
 
-  startBtn.disabled = true;
-  cashoutBtn.disabled = false;
+  betAmt = Number(document.getElementById("bet").value);
+  if(betAmt <= 0) return alert("Invalid bet");
 
   playing = true;
   crashed = false;
   cashedOut = false;
   multiplier = 1;
-  multi.innerText = "1.00x";
-  msg.innerText = "Flying...";
+  document.getElementById("multi").innerText = "1.00x";
+  document.getElementById("msg").innerText = "Flying...";
+  document.getElementById("plane").style.transform="translate(0,0)";
 
-  timer = setInterval(gameLoop, 100);
+  interval = setInterval(gameLoop, 150); // slower plane
 }
 
-// ---------- GAME LOOP ----------
+/* ===== GAME LOOP ===== */
 function gameLoop(){
-  multiplier += speed;
-  multi.innerText = multiplier.toFixed(2) + "x";
+  multiplier += 0.01; // slower speed
+  document.getElementById("multi").innerText = multiplier.toFixed(2)+"x";
+  document.getElementById("plane").style.transform=
+    `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-  // ADMIN CRASH (TOP PRIORITY)
-  if(multiplier >= adminCrashAt){
+  // ADMIN CRASH
+  if(!crashed && multiplier >= adminCrashAt){
     crash();
     return;
   }
 
   // AUTO CASHOUT
-  if(
-    !cashedOut &&
-    autoToggle.checked &&
-    Number(autoValue.value) > 1 &&
-    multiplier >= Number(autoValue.value)
-  ){
-    cashout(false);
+  let autoEnabled = document.getElementById("autoToggle").checked;
+  let autoValue = Number(document.getElementById("autoValue").value);
+  if(autoEnabled && !cashedOut && autoValue>1 && multiplier>=autoValue && multiplier<adminCrashAt){
+    doCashout("Auto");
   }
 }
 
-// ---------- CASHOUT ----------
-function manualCashout(){
-  if(!playing || cashedOut) return;
-  cashout(true);
+/* ===== CASHOUT ===== */
+function doCashout(type){
+  cashedOut = true;
+  let profit = Math.floor(betAmt * (multiplier-1)); // only profit
+  updateBalance(profit);
+  document.getElementById("msg").innerText = `✅ ${type} Cashout +₹${profit}`;
 }
 
-function cashout(manual){
-  cashedOut = true;
-  let profit = Math.floor(betAmt * (multiplier - 1));
-  updateBalance(profit);
-  msg.innerText = manual ? "✅ Manual Cashout" : "✅ Auto Cashout";
+/* ===== MANUAL CASHOUT ===== */
+function manualCashout(){
+  if(!playing || cashedOut) return;
+  doCashout("Manual");
   endGame();
 }
 
-// ---------- CRASH ----------
+/* ===== CRASH ===== */
 function crash(){
   crashed = true;
-  multi.classList.add("crash");
-  msg.innerText = "💥 CRASHED!";
+  document.getElementById("multi").classList.add("crash");
+  document.getElementById("msg").innerText="💥 CRASHED!";
   if(!cashedOut){
     updateBalance(-betAmt);
   }
   endGame();
+  // Increment round
+  firebase.database().ref("admin").update({
+    roundId: roundId+1,
+    status: "waiting",
+    countdown: 10
+  });
 }
 
-// ---------- END ----------
+/* ===== END GAME ===== */
 function endGame(){
-  clearInterval(timer);
+  clearInterval(interval);
   playing = false;
-  cashoutBtn.disabled = true;
-  multi.classList.remove("crash");
-  startCountdown();
 }
 
-// ---------- BALANCE ----------
+/* ===== UPDATE BALANCE ===== */
 function updateBalance(amount){
-  firebase.database().ref("users/"+uid+"/balance")
-    .set(balance + amount);
+  const ref = firebase.database().ref("users/"+uid+"/balance");
+  ref.once("value").then(s=>{
+    ref.set((s.val()||0)+amount);
+  });
 }
 </script>
 </body>
