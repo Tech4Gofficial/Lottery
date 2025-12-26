@@ -2,7 +2,6 @@
 <html>
 <head>
 <title>Aviator</title>
-<link rel="stylesheet" href="style.css">
 <style>
 body{
   background:#0f172a;
@@ -17,15 +16,13 @@ body{
   background:#020617;
   padding:20px;
   border-radius:12px;
-  width:320px;
+  width:330px;
   text-align:center;
-  box-shadow:0 0 20px rgba(0,255,255,.2);
 }
 #curve{
   height:120px;
   background:linear-gradient(135deg,#22c55e,#0ea5e9);
   border-radius:8px;
-  margin:10px 0;
   position:relative;
   overflow:hidden;
 }
@@ -34,35 +31,23 @@ body{
   bottom:10px;
   left:10px;
   font-size:24px;
-  transition:transform .1s linear;
 }
-#multi{
-  font-size:28px;
-  margin:10px 0;
-}
-.crash{
-  color:red;
-  animation:shake .3s infinite;
-}
-@keyframes shake{
-  0%{transform:translateX(0)}
-  25%{transform:translateX(2px)}
-  50%{transform:translateX(-2px)}
-}
+#multi{font-size:28px;margin:10px}
+.crash{color:red}
 input,button{
   width:90%;
   padding:8px;
-  margin:6px 0;
+  margin:6px;
   border-radius:6px;
   border:none;
 }
-button{
-  background:#22c55e;
-  color:black;
-  font-weight:bold;
-  cursor:pointer;
+button{background:#22c55e;font-weight:bold}
+.toggle{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
 }
-button:hover{opacity:.85}
 </style>
 </head>
 
@@ -71,11 +56,17 @@ button:hover{opacity:.85}
 <h2>✈️ Aviator</h2>
 <p>Balance ₹<span id="bal">0</span></p>
 
-<input type="number" id="bet" placeholder="Bet Amount" value="10">
-<input type="number" id="auto" placeholder="Auto Cashout (eg 1.50)" step="0.01">
+<input type="number" id="bet" value="10" placeholder="Bet">
+
+<div class="toggle">
+  <input type="checkbox" id="autoToggle">
+  <label>Auto Cashout</label>
+</div>
+
+<input type="number" id="autoValue" step="0.01" placeholder="Auto x (eg 1.50)">
 
 <button onclick="start()">Start</button>
-<button onclick="cashout(true)">Cashout</button>
+<button onclick="manualCashout()">Cashout</button>
 
 <div id="curve">
   <div id="plane">✈️</div>
@@ -83,9 +74,6 @@ button:hover{opacity:.85}
 
 <div id="multi">1.00x</div>
 <p id="msg"></p>
-
-<a href="games.html">⬅ Back</a><br><br>
-<button onclick="logout()">Logout</button>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -95,108 +83,96 @@ button:hover{opacity:.85}
 
 <script>
 let uid;
-let multiplier = 1;
+let balance = 0;
 let betAmt = 0;
+let multiplier = 1;
 let interval;
-let crashed = false;
 let playing = false;
-let playingAuto = false;
+let cashedOut = false;
 let adminCrashAt = 999;
 
-// Auth & balance
-firebase.auth().onAuthStateChanged(user => {
-  if(!user){ location.href="index.html"; return; }
-  uid = user.uid;
+firebase.auth().onAuthStateChanged(user=>{
+  if(!user) return;
+  uid=user.uid;
 
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s => bal.innerText = s.val() || 0);
+    .on("value",s=>bal.innerText=s.val()||0);
 
   firebase.database().ref("admin/crashAt")
-    .on("value", s => {
-      if(s.exists()) adminCrashAt = parseFloat(s.val());
-      console.log("Admin crashAt:", adminCrashAt);
+    .on("value",s=>{
+      if(s.exists()) adminCrashAt=parseFloat(s.val());
     });
 });
 
-// Start game
 function start(){
-  if(playing) return alert("Game running");
+  if(playing) return;
   betAmt = Number(bet.value);
-  if(betAmt <= 0) return alert("Invalid bet");
+  if(betAmt<=0) return alert("Invalid bet");
 
-  playing = true;
-  crashed = false;
-  playingAuto = false;
-  multiplier = 1;
-  multi.innerText = "1.00x";
-  msg.innerText = "Flying...";
-  plane.style.transform = "translate(0,0)";
+  playing=true;
+  cashedOut=false;
+  multiplier=1;
+  multi.innerText="1.00x";
+  msg.innerText="Flying...";
   multi.classList.remove("crash");
 
-  interval = setInterval(() => {
+  interval=setInterval(()=>{
     multiplier += 0.02;
-    multi.innerText = multiplier.toFixed(2) + "x";
-    plane.style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
+    multi.innerText = multiplier.toFixed(2)+"x";
+    plane.style.transform =
+      `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-    // 1️⃣ Admin crash (highest priority)
-    if(!crashed && multiplier >= adminCrashAt){
+    /* 🔥 1️⃣ ADMIN CRASH (TOP PRIORITY) */
+    if(multiplier >= adminCrashAt){
       crash();
       return;
     }
 
-    // 2️⃣ Auto cashout (only below admin crash)
-    let auto = Number(document.getElementById("auto").value);
-    if(!crashed && !playingAuto && auto > 1 && auto < adminCrashAt && multiplier >= auto){
-      playingAuto = true;
-      cashout(false); // record auto cashout but DO NOT end game
+    /* 💰 2️⃣ AUTO CASHOUT */
+    if(
+      !cashedOut &&
+      autoToggle.checked &&
+      Number(autoValue.value)>1 &&
+      multiplier >= Number(autoValue.value)
+    ){
+      doCashout("Auto");
     }
 
-  }, 100);
+  },100);
 }
 
-// Cashout function
-// isManual: true if player clicks cashout, false if auto cashout
-function cashout(isManual = true){
-  if(!playing || crashed) return;
+function doCashout(type){
+  cashedOut=true;
   let win = Math.floor(betAmt * multiplier);
   updateBalance(win);
-  if(isManual){
-    msg.innerText = "✅ Cashed out ₹" + win;
-    endGame(); // manual cashout ends game
-  } else {
-    msg.innerText = "✅ Auto cashed out ₹" + win;
-    // Do NOT end game; admin crash can still happen
-  }
+  msg.innerText = `✅ ${type} Cashout ₹${win}`;
 }
 
-// Crash function
-function crash(){
-  if(crashed) return;
-  crashed = true;
-  multi.classList.add("crash");
-  msg.innerText = "💥 CRASHED!";
-  updateBalance(-betAmt);
+function manualCashout(){
+  if(!playing || cashedOut) return;
+  doCashout("Manual");
   endGame();
 }
 
-// End game
+function crash(){
+  multi.classList.add("crash");
+  msg.innerText="💥 CRASHED!";
+  if(!cashedOut){
+    updateBalance(-betAmt);
+  }
+  endGame();
+}
+
 function endGame(){
   clearInterval(interval);
-  playing = false;
+  playing=false;
 }
 
-// Update Firebase balance
 function updateBalance(amount){
   const ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(s => {
-    ref.set((s.val()||0) + amount);
+  ref.once("value").then(s=>{
+    ref.set((s.val()||0)+amount);
   });
-}
-
-// Logout
-function logout(){
-  firebase.auth().signOut();
-  location.href="index.html";
 }
 </script>
 </body>
