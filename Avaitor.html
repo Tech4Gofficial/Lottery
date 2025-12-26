@@ -11,10 +11,9 @@
 
 <p>Balance ₹<span id="bal">0</span></p>
 <p>Round: <span id="roundId">1</span></p>
-<p>Countdown: <span id="countdown">0</span>s</p>
+<p>Countdown: <span id="countdown">10</span>s</p>
 
 <input type="number" id="bet" value="10" placeholder="Bet Amount">
-
 <div>
   <input type="checkbox" id="autoToggle"><label>Auto Cashout</label>
   <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
@@ -47,31 +46,33 @@ let cashedOut = false;
 // Admin controls
 let adminCrashAt = 999;
 let roundId = 1;
-let localCountdown = 10;
-let status = "waiting";
+let countdown = 10;
+let status = "waiting"; // waiting = countdown, flying = plane moving
 
 // ===== AUTH & BALANCE =====
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
+  // Listen balance
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
-  // Read admin values once
+  // Read admin info once
   firebase.database().ref("admin").once("value").then(snap=>{
     if(snap.exists()){
       const data = snap.val();
-      localCountdown = data.countdown || 10;
+      countdown = data.countdown || 10;
       roundId = data.roundId || 1;
       status = data.status || "waiting";
       adminCrashAt = parseFloat(data.crashAt || 999);
-      document.getElementById("countdown").innerText = localCountdown;
+
+      document.getElementById("countdown").innerText = countdown;
       document.getElementById("roundId").innerText = roundId;
     }
   });
 
-  // Listen admin crash multiplier changes
+  // Listen crash multiplier changes
   firebase.database().ref("admin/crashAt").on("value", snap=>{
     if(snap.exists()) adminCrashAt = parseFloat(snap.val());
   });
@@ -80,16 +81,15 @@ firebase.auth().onAuthStateChanged(user=>{
 // ===== COUNTDOWN TIMER =====
 setInterval(()=>{
   if(status === "waiting"){
-    localCountdown--;
-    if(localCountdown <= 0){
-      localCountdown = 0;
+    countdown--;
+    if(countdown <= 0){
+      countdown = 0;
       document.getElementById("countdown").innerText = 0;
       startRound();
     } else {
-      document.getElementById("countdown").innerText = localCountdown;
+      document.getElementById("countdown").innerText = countdown;
     }
-    // Sync to Firebase without overwriting local countdown
-    firebase.database().ref("admin/countdown").set(localCountdown);
+    firebase.database().ref("admin/countdown").set(countdown);
   }
 },1000);
 
@@ -103,10 +103,6 @@ function startRound(){
 
 // ===== START GAME =====
 function startGame(){
-  if(playing) return;
-  betAmt = Number(document.getElementById("bet").value);
-  if(betAmt <= 0) return alert("Invalid bet");
-
   playing = true;
   crashed = false;
   cashedOut = false;
@@ -125,13 +121,13 @@ function gameLoop(){
   document.getElementById("multi").innerText = multiplier.toFixed(2)+"x";
   document.getElementById("plane").style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
-  // ADMIN CRASH
+  // Admin crash
   if(!crashed && multiplier >= adminCrashAt){
     crash();
     return;
   }
 
-  // AUTO CASHOUT
+  // Auto cashout
   const autoEnabled = document.getElementById("autoToggle").checked;
   const autoValue = Number(document.getElementById("autoValue").value);
   if(autoEnabled && !cashedOut && autoValue>1 && multiplier>=autoValue && multiplier<adminCrashAt){
@@ -151,7 +147,6 @@ function doCashout(type){
 function manualCashout(){
   if(!playing || cashedOut) return;
   doCashout("Manual");
-  endGame();
 }
 
 // ===== CRASH =====
@@ -162,13 +157,13 @@ function crash(){
   if(!cashedOut) updateBalance(-betAmt);
   endGame();
 
-  // Reset countdown and increment round
-  localCountdown = 10;
+  // Reset countdown and next round
+  countdown = 10;
   roundId++;
   status = "waiting";
   firebase.database().ref("admin").update({
     roundId: roundId,
-    countdown: localCountdown,
+    countdown: countdown,
     status: status
   });
   document.getElementById("roundId").innerText = roundId;
