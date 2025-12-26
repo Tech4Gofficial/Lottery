@@ -44,7 +44,7 @@ let playing = false;
 let crashed = false;
 let cashedOut = false;
 
-// Admin controls
+// Admin
 let adminCrashAt = 999;
 let roundId = 1;
 let localCountdown = 10;
@@ -58,7 +58,7 @@ firebase.auth().onAuthStateChanged(user=>{
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
-  // Read admin info once
+  // Load admin data once
   firebase.database().ref("admin").once("value").then(snap=>{
     if(snap.exists()){
       const data = snap.val();
@@ -72,7 +72,7 @@ firebase.auth().onAuthStateChanged(user=>{
     }
   });
 
-  // Listen admin crash multiplier changes
+  // Listen crash multiplier changes
   firebase.database().ref("admin/crashAt").on("value", snap=>{
     if(snap.exists()) adminCrashAt = parseFloat(snap.val());
   });
@@ -89,7 +89,7 @@ setInterval(()=>{
     } else {
       document.getElementById("countdown").innerText = localCountdown;
     }
-    // Sync to Firebase
+    // Update Firebase (only for admin dashboard, not for reading)
     firebase.database().ref("admin/countdown").set(localCountdown);
   }
 },1000);
@@ -158,7 +158,7 @@ function crash(){
   if(!cashedOut) updateBalance(-betAmt);
   endGame();
 
-  // Reset countdown and next round
+  // Reset countdown & next round
   localCountdown = 10;
   roundId++;
   status = "waiting";
