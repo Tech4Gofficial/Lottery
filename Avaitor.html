@@ -14,6 +14,7 @@
 <p>Countdown: <span id="countdown">10</span>s</p>
 
 <input type="number" id="bet" value="10" placeholder="Bet Amount">
+
 <div>
   <input type="checkbox" id="autoToggle"><label>Auto Cashout</label>
   <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
@@ -46,7 +47,7 @@ let cashedOut = false;
 // Admin controls
 let adminCrashAt = 999;
 let roundId = 1;
-let countdown = 10;
+let localCountdown = 10;
 let status = "waiting"; // waiting = countdown, flying = plane moving
 
 // ===== AUTH & BALANCE =====
@@ -54,7 +55,6 @@ firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
-  // Listen balance
   firebase.database().ref("users/"+uid+"/balance")
     .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
@@ -62,17 +62,17 @@ firebase.auth().onAuthStateChanged(user=>{
   firebase.database().ref("admin").once("value").then(snap=>{
     if(snap.exists()){
       const data = snap.val();
-      countdown = data.countdown || 10;
+      localCountdown = data.countdown || 10;
       roundId = data.roundId || 1;
       status = data.status || "waiting";
       adminCrashAt = parseFloat(data.crashAt || 999);
 
-      document.getElementById("countdown").innerText = countdown;
+      document.getElementById("countdown").innerText = localCountdown;
       document.getElementById("roundId").innerText = roundId;
     }
   });
 
-  // Listen crash multiplier changes
+  // Listen admin crash multiplier changes
   firebase.database().ref("admin/crashAt").on("value", snap=>{
     if(snap.exists()) adminCrashAt = parseFloat(snap.val());
   });
@@ -81,15 +81,16 @@ firebase.auth().onAuthStateChanged(user=>{
 // ===== COUNTDOWN TIMER =====
 setInterval(()=>{
   if(status === "waiting"){
-    countdown--;
-    if(countdown <= 0){
-      countdown = 0;
+    localCountdown--;
+    if(localCountdown <= 0){
+      localCountdown = 0;
       document.getElementById("countdown").innerText = 0;
       startRound();
     } else {
-      document.getElementById("countdown").innerText = countdown;
+      document.getElementById("countdown").innerText = localCountdown;
     }
-    firebase.database().ref("admin/countdown").set(countdown);
+    // Sync to Firebase
+    firebase.database().ref("admin/countdown").set(localCountdown);
   }
 },1000);
 
@@ -158,12 +159,12 @@ function crash(){
   endGame();
 
   // Reset countdown and next round
-  countdown = 10;
+  localCountdown = 10;
   roundId++;
   status = "waiting";
   firebase.database().ref("admin").update({
     roundId: roundId,
-    countdown: countdown,
+    countdown: localCountdown,
     status: status
   });
   document.getElementById("roundId").innerText = roundId;
