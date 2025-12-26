@@ -2,89 +2,34 @@
 <html>
 <head>
 <title>Aviator</title>
-
-<style>
-body{
-  background:#0f172a;
-  color:white;
-  font-family:Arial;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.card{
-  background:#020617;
-  padding:20px;
-  border-radius:12px;
-  width:340px;
-  text-align:center;
-}
-#curve{
-  height:120px;
-  background:linear-gradient(135deg,#22c55e,#0ea5e9);
-  border-radius:8px;
-  position:relative;
-  overflow:hidden;
-}
-#plane{
-  position:absolute;
-  bottom:10px;
-  left:10px;
-  font-size:24px;
-  transition:transform .1s linear;
-}
-#multi{
-  font-size:28px;
-  margin:10px;
-}
-.crash{color:red}
-input,button{
-  width:90%;
-  padding:8px;
-  margin:6px;
-  border-radius:6px;
-  border:none;
-}
-button{
-  background:#22c55e;
-  font-weight:bold;
-  cursor:pointer;
-}
-.toggle{
-  display:flex;
-  justify-content:center;
-  gap:8px;
-  align-items:center;
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <div class="card">
-<h2>✈️ Aviator</h2>
+  <h2>✈️ Aviator</h2>
 
-<p>Balance ₹<span id="bal">0</span></p>
+  <p>Balance ₹<span id="bal">0</span></p>
 
-<input type="number" id="bet" value="10" placeholder="Bet Amount">
+  <input type="number" id="bet" value="10" placeholder="Bet Amount">
 
-<div class="toggle">
-  <input type="checkbox" id="autoToggle">
-  <label>Auto Cashout</label>
-</div>
+  <div class="toggle">
+    <input type="checkbox" id="autoToggle">
+    <label>Auto Cashout</label>
+  </div>
 
-<input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
+  <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x" disabled>
 
-<button onclick="start()">Start</button>
-<button onclick="manualCashout()">Cashout</button>
+  <button id="startBtn" onclick="start()">Start</button>
+  <button id="cashoutBtn" onclick="manualCashout()" disabled>Cashout</button>
 
-<div id="curve">
-  <div id="plane">✈️</div>
-</div>
+  <div id="curve">
+    <div id="plane">✈️</div>
+  </div>
 
-<div id="multi">1.00x</div>
-<p id="msg"></p>
+  <div id="multi">1.00x</div>
+  <p id="msg"></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -93,7 +38,7 @@ button{
 <script src="firebase.js"></script>
 
 <script>
-/* ===== GLOBAL STATE ===== */
+/* ===== STATE ===== */
 let uid;
 let betAmt = 0;
 let multiplier = 1;
@@ -103,23 +48,29 @@ let crashed = false;
 let cashedOut = false;
 let adminCrashAt = 999;
 
-/* ===== AUTH & DATA ===== */
+/* ===== ENABLE / DISABLE AUTO INPUT ===== */
+autoToggle.addEventListener("change", () => {
+  autoValue.disabled = !autoToggle.checked;
+});
+
+/* ===== AUTH & FIREBASE ===== */
 firebase.auth().onAuthStateChanged(user=>{
-  if(!user){ location.href="index.html"; return; }
+  if(!user){
+    location.href = "index.html";
+    return;
+  }
   uid = user.uid;
 
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value", s=>{
+    .on("value", s => {
       bal.innerText = s.val() ?? 0;
     });
 
   firebase.database().ref("admin/crashAt")
-    .on("value", s=>{
+    .on("value", s => {
       if(s.exists()){
-        adminCrashAt = parseFloat(s.val());
-        console.log("🔥 ADMIN CRASH SET:", adminCrashAt);
-      } else {
-        adminCrashAt = 999;
+        adminCrashAt = Number(s.val());
+        console.log("ADMIN CRASH AT:", adminCrashAt);
       }
     });
 });
@@ -136,15 +87,19 @@ function start(){
   cashedOut = false;
   multiplier = 1;
 
+  startBtn.disabled = true;
+  cashoutBtn.disabled = false;
+  bet.disabled = true;
+
   msg.innerText = "Flying...";
   multi.innerText = "1.00x";
-  multi.classList.remove("crash");
+
   plane.style.transform = "translate(0,0)";
 
   interval = setInterval(gameLoop, 100);
 }
 
-/* ===== MAIN GAME LOOP ===== */
+/* ===== GAME LOOP ===== */
 function gameLoop(){
   multiplier += 0.02;
   multi.innerText = multiplier.toFixed(2) + "x";
@@ -152,9 +107,8 @@ function gameLoop(){
   plane.style.transform =
     `translate(${multiplier*15}px, ${-multiplier*6}px)`;
 
-  /* 🔥 ADMIN CRASH — HIGHEST PRIORITY */
+  /* 🔥 ADMIN CRASH (TOP PRIORITY) */
   if(!crashed && multiplier >= adminCrashAt){
-    console.log("💥 CRASHED BY ADMIN");
     crash();
     return;
   }
@@ -170,7 +124,7 @@ function gameLoop(){
   }
 }
 
-/* ===== CASHOUTS ===== */
+/* ===== CASHOUT ===== */
 function doCashout(type){
   cashedOut = true;
   let win = Math.floor(betAmt * multiplier);
@@ -187,7 +141,6 @@ function manualCashout(){
 /* ===== CRASH ===== */
 function crash(){
   crashed = true;
-  multi.classList.add("crash");
   msg.innerText = "💥 CRASHED!";
 
   if(!cashedOut){
@@ -200,6 +153,10 @@ function crash(){
 function endGame(){
   clearInterval(interval);
   playing = false;
+
+  startBtn.disabled = false;
+  cashoutBtn.disabled = true;
+  bet.disabled = false;
 }
 
 /* ===== BALANCE UPDATE ===== */
