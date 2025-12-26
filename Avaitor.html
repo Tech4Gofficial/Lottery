@@ -48,31 +48,30 @@ let cashedOut = false;
 let adminCrashAt = 999;
 let roundId = 1;
 let countdown = 10;
+let status = "waiting";
 
 // ===== AUTH & BALANCE =====
 firebase.auth().onAuthStateChanged(user=>{
   if(!user){ location.href="index.html"; return; }
   uid = user.uid;
 
-  // Listen user balance
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value", snap=>{
-      document.getElementById("bal").innerText = snap.val() || 0;
-    });
+    .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
 
-  // Read admin info once
+  // Read admin once
   firebase.database().ref("admin").once("value").then(snap=>{
-    if(snap.exists()){
-      const data = snap.val();
-      countdown = data.countdown || 10;
-      roundId = data.roundId || 1;
-      adminCrashAt = parseFloat(data.crashAt || 999);
-      document.getElementById("countdown").innerText = countdown;
-      document.getElementById("roundId").innerText = roundId;
-    }
+    if(!snap.exists()) return;
+    const data = snap.val();
+    countdown = data.countdown || 10;
+    roundId = data.roundId || 1;
+    status = data.status || "waiting";
+    adminCrashAt = parseFloat(data.crashAt || 999);
+
+    document.getElementById("countdown").innerText = countdown;
+    document.getElementById("roundId").innerText = roundId;
   });
 
-  // Listen admin changes (crash multiplier)
+  // Listen admin crash multiplier changes
   firebase.database().ref("admin/crashAt").on("value", snap=>{
     if(snap.exists()) adminCrashAt = parseFloat(snap.val());
   });
@@ -80,31 +79,30 @@ firebase.auth().onAuthStateChanged(user=>{
 
 // ===== COUNTDOWN TIMER =====
 setInterval(()=>{
-  firebase.database().ref("admin/status").once("value").then(snap=>{
-    const status = snap.val() || "waiting";
-
-    // Decrement countdown only if waiting
-    if(status === "waiting"){
-      countdown--;
-      if(countdown <= 0){
-        countdown = 0;
-        document.getElementById("countdown").innerText = countdown;
-        // Start new round
-        firebase.database().ref("admin").update({status:"flying"});
-        startGame();
-      } else {
-        document.getElementById("countdown").innerText = countdown;
-      }
-      // Sync countdown to Firebase
-      firebase.database().ref("admin/countdown").set(countdown);
+  if(status === "waiting"){
+    countdown--;
+    if(countdown <= 0){
+      countdown = 0;
+      document.getElementById("countdown").innerText = countdown;
+      startRound();
+    } else {
+      document.getElementById("countdown").innerText = countdown;
     }
-  });
-}, 1000);
+    firebase.database().ref("admin/countdown").set(countdown);
+  }
+},1000);
+
+// ===== START ROUND =====
+function startRound(){
+  if(playing) return;
+  status = "flying";
+  firebase.database().ref("admin").update({status:"flying"});
+  startGame();
+}
 
 // ===== START GAME =====
 function startGame(){
   if(playing) return;
-
   betAmt = Number(document.getElementById("bet").value);
   if(betAmt <= 0) return alert("Invalid bet");
 
@@ -117,15 +115,14 @@ function startGame(){
   document.getElementById("msg").innerText = "Flying...";
   document.getElementById("plane").style.transform="translate(0,0)";
 
-  interval = setInterval(gameLoop, 150); // slower plane for precision
+  interval = setInterval(gameLoop, 150);
 }
 
 // ===== GAME LOOP =====
 function gameLoop(){
   multiplier += 0.01;
   document.getElementById("multi").innerText = multiplier.toFixed(2)+"x";
-  document.getElementById("plane").style.transform=
-    `translate(${multiplier*15}px,${-multiplier*6}px)`;
+  document.getElementById("plane").style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
 
   // ADMIN CRASH
   if(!crashed && multiplier >= adminCrashAt){
@@ -144,7 +141,7 @@ function gameLoop(){
 // ===== CASHOUT =====
 function doCashout(type){
   cashedOut = true;
-  const profit = Math.floor(betAmt * (multiplier-1)); // only profit
+  const profit = Math.floor(betAmt * (multiplier-1)); // profit only
   updateBalance(profit);
   document.getElementById("msg").innerText = `✅ ${type} Cashout +₹${profit}`;
 }
@@ -164,12 +161,16 @@ function crash(){
   if(!cashedOut) updateBalance(-betAmt);
   endGame();
 
-  // Increment round and reset countdown
+  // Reset countdown and next round
+  countdown = 10;
+  roundId++;
+  status = "waiting";
   firebase.database().ref("admin").update({
-    roundId: roundId+1,
-    status:"waiting",
-    countdown:10
+    roundId: roundId,
+    countdown: countdown,
+    status: status
   });
+  document.getElementById("roundId").innerText = roundId;
 }
 
 // ===== END GAME =====
@@ -181,7 +182,7 @@ function endGame(){
 // ===== UPDATE BALANCE =====
 function updateBalance(amount){
   const ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(s=>ref.set((s.val()||0)+amount));
+  ref.once("value").then(snap => ref.set((snap.val()||0)+amount));
 }
 </script>
 </body>
