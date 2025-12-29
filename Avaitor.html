@@ -8,16 +8,15 @@
 
 <div class="card">
 <h2>✈️ Aviator</h2>
-
 <p>Balance ₹<span id="bal">0</span></p>
-<p>Status: <span id="status">waiting</span></p>
-<p>Countdown: <span id="countdown">10</span></p>
+<p>Status: <span id="status"></span></p>
+<p>Countdown: <span id="count"></span></p>
 
 <input type="number" id="bet" placeholder="Bet Amount">
 <button onclick="placeBet()">Place Bet</button>
 <button onclick="cashout()">Cashout</button>
 
-<div id="multi">1.00x</div>
+<h1 id="multi">1.00x</h1>
 <p id="msg"></p>
 </div>
 
@@ -28,67 +27,61 @@
 
 <script>
 let uid;
-let betAmt = 0;
-let flying = false;
-let multiplier = 1;
-let crashAt = 100;
-let loop;
+let currentRound=0;
+let flying=false;
+let multiplier=1;
 
-firebase.auth().onAuthStateChanged(user=>{
-  uid=user.uid;
+firebase.auth().onAuthStateChanged(u=>{
+  if(!u) return location.href="index.html";
+  uid=u.uid;
 
   firebase.database().ref("users/"+uid+"/balance")
-    .on("value",s=>bal.innerText=s.val()||0);
+    .on("value",s=>bal.innerText=s.val());
 
   firebase.database().ref("admin").on("value",s=>{
     const d=s.val();
     status.innerText=d.status;
-    countdown.innerText=d.countdown;
-    crashAt=d.crashAt;
+    count.innerText=d.countdown;
+    currentRound=d.roundId;
 
     if(d.status==="flying" && !flying){
-      startFlight();
+      startPlane();
     }
   });
 });
 
 function placeBet(){
-  betAmt=Number(bet.value);
-  msg.innerText="Bet placed";
+  firebase.database().ref(`bets/round_${currentRound}/${uid}`).set({
+    bet:Number(bet.value),
+    cashedOut:false
+  });
 }
 
-function startFlight(){
+function startPlane(){
   flying=true;
   multiplier=1;
-  clearInterval(loop);
-
-  loop=setInterval(()=>{
+  let fly=setInterval(()=>{
     multiplier+=0.01;
     multi.innerText=multiplier.toFixed(2)+"x";
 
-    if(multiplier>=crashAt){
-      crash();
-    }
-  },200);
+    firebase.database().ref("admin/status").once("value").then(s=>{
+      if(s.val()==="crashed"){
+        clearInterval(fly);
+        flying=false;
+        msg.innerText="💥 CRASHED";
+      }
+    });
+  },150);
 }
 
 function cashout(){
-  if(!flying) return;
-  const profit=Math.floor(betAmt*(multiplier-1));
-  updateBal(profit);
-  msg.innerText="Cashed out +₹"+profit;
-}
-
-function crash(){
-  clearInterval(loop);
-  flying=false;
-  msg.innerText="💥 CRASHED";
-  updateBal(-betAmt);
-}
-
-function updateBal(x){
-  const ref=firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(s=>ref.set((s.val()||0)+x));
+  firebase.database().ref(`bets/round_${currentRound}/${uid}`).once("value").then(s=>{
+    if(!s.exists()) return;
+    let profit=Math.floor(s.val().bet*(multiplier-1));
+    firebase.database().ref("users/"+uid+"/balance")
+      .transaction(b=>b+profit);
+    msg.innerText="✅ Cashed Out";
+  });
 }
 </script>
 </body>
