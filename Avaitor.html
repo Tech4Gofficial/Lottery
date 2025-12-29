@@ -9,178 +9,53 @@
 <div class="card">
 <h2>✈️ Aviator</h2>
 
-<p>Balance ₹<span id="bal">0</span></p>
-<p>Round: <span id="roundId">1</span></p>
-<p>Countdown: <span id="countdown">10</span>s</p>
-
-<input type="number" id="bet" value="10" placeholder="Bet Amount">
-
-<div>
-  <input type="checkbox" id="autoToggle"><label>Auto Cashout</label>
-  <input type="number" id="autoValue" step="0.01" placeholder="Auto Cashout x">
-</div>
-
-<button onclick="manualCashout()">Cashout</button>
-
-<div id="curve">
-  <div id="plane">✈️</div>
-</div>
+<p>Round: <span id="round">1</span></p>
+<p>Status: <span id="status">waiting</span></p>
+<p>Countdown: <span id="count">--</span></p>
 
 <div id="multi">1.00x</div>
 <p id="msg"></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 
 <script>
-let uid;
-let betAmt = 0;
 let multiplier = 1;
-let interval = null;
-let playing = false;
-let crashed = false;
-let cashedOut = false;
+let flying = false;
+let crashAt = 999;
+let loop;
 
-// Admin
-let adminCrashAt = 999;
-let roundId = 1;
-let localCountdown = 10;
-let status = "waiting"; // waiting = countdown, flying = plane moving
+firebase.database().ref("admin").on("value", snap=>{
+  const d = snap.val();
+  document.getElementById("count").innerText = d.countdown;
+  document.getElementById("round").innerText = d.roundId;
+  document.getElementById("status").innerText = d.status;
+  crashAt = d.crashAt;
 
-// ===== AUTH & BALANCE =====
-firebase.auth().onAuthStateChanged(user=>{
-  if(!user){ location.href="index.html"; return; }
-  uid = user.uid;
-
-  // Balance listener
-  firebase.database().ref("users/"+uid+"/balance")
-    .on("value", snap => document.getElementById("bal").innerText = snap.val() || 0);
-
-  // Load admin info once
-  firebase.database().ref("admin").once("value").then(snap=>{
-    if(snap.exists()){
-      const data = snap.val();
-      localCountdown = data.countdown || 10;
-      roundId = data.roundId || 1;
-      status = data.status || "waiting";
-      adminCrashAt = parseFloat(data.crashAt || 999);
-
-      document.getElementById("countdown").innerText = localCountdown;
-      document.getElementById("roundId").innerText = roundId;
-    }
-  });
-
-  // Listen admin crash multiplier changes
-  firebase.database().ref("admin/crashAt").on("value", snap=>{
-    if(snap.exists()) adminCrashAt = parseFloat(snap.val());
-  });
+  if(d.status === "flying" && !flying){
+    startFlight();
+  }
 });
 
-// ===== COUNTDOWN TIMER =====
-setInterval(()=>{
-  if(status === "waiting"){
-    localCountdown--;
-    if(localCountdown <= 0){
-      localCountdown = 0;
-      document.getElementById("countdown").innerText = 0;
-      startRound();
-    } else {
-      document.getElementById("countdown").innerText = localCountdown;
-    }
-    // Update Firebase for admin only
-    firebase.database().ref("admin/countdown").set(localCountdown);
-  }
-},1000);
-
-// ===== START ROUND =====
-function startRound(){
-  if(playing) return;
-  status = "flying";
-  firebase.database().ref("admin").update({status:"flying"});
-  startGame();
-}
-
-// ===== START GAME =====
-function startGame(){
-  playing = true;
-  crashed = false;
-  cashedOut = false;
+function startFlight(){
+  flying = true;
   multiplier = 1;
-
-  document.getElementById("multi").innerText = "1.00x";
-  document.getElementById("msg").innerText = "Flying...";
-  document.getElementById("plane").style.transform="translate(0,0)";
-
-  interval = setInterval(gameLoop, 150);
+  loop = setInterval(()=>{
+    multiplier += 0.01;
+    multi.innerText = multiplier.toFixed(2)+"x";
+    if(multiplier >= crashAt){
+      crash();
+    }
+  },200);
 }
 
-// ===== GAME LOOP =====
-function gameLoop(){
-  multiplier += 0.01;
-  document.getElementById("multi").innerText = multiplier.toFixed(2)+"x";
-  document.getElementById("plane").style.transform = `translate(${multiplier*15}px,${-multiplier*6}px)`;
-
-  // Admin crash
-  if(!crashed && multiplier >= adminCrashAt){
-    crash();
-    return;
-  }
-
-  // Auto cashout
-  const autoEnabled = document.getElementById("autoToggle").checked;
-  const autoValue = Number(document.getElementById("autoValue").value);
-  if(autoEnabled && !cashedOut && autoValue>1 && multiplier>=autoValue && multiplier<adminCrashAt){
-    doCashout("Auto");
-  }
-}
-
-// ===== CASHOUT =====
-function doCashout(type){
-  cashedOut = true;
-  const profit = Math.floor(betAmt * (multiplier-1)); // profit only
-  updateBalance(profit);
-  document.getElementById("msg").innerText = `✅ ${type} Cashout +₹${profit}`;
-}
-
-// ===== MANUAL CASHOUT =====
-function manualCashout(){
-  if(!playing || cashedOut) return;
-  doCashout("Manual");
-}
-
-// ===== CRASH =====
 function crash(){
-  crashed = true;
-  document.getElementById("multi").classList.add("crash");
-  document.getElementById("msg").innerText="💥 CRASHED!";
-  if(!cashedOut) updateBalance(-betAmt);
-  endGame();
-
-  // Reset countdown & next round
-  localCountdown = 10;
-  roundId++;
-  status = "waiting";
-  firebase.database().ref("admin").update({
-    roundId: roundId,
-    countdown: localCountdown,
-    status: status
-  });
-  document.getElementById("roundId").innerText = roundId;
-}
-
-// ===== END GAME =====
-function endGame(){
-  clearInterval(interval);
-  playing = false;
-}
-
-// ===== UPDATE BALANCE =====
-function updateBalance(amount){
-  const ref = firebase.database().ref("users/"+uid+"/balance");
-  ref.once("value").then(snap => ref.set((snap.val()||0)+amount));
+  clearInterval(loop);
+  flying = false;
+  multi.classList.add("crash");
+  msg.innerText = "CRASHED!";
 }
 </script>
 </body>
