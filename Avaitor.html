@@ -9,53 +9,86 @@
 <div class="card">
 <h2>✈️ Aviator</h2>
 
-<p>Round: <span id="round">1</span></p>
+<p>Balance ₹<span id="bal">0</span></p>
 <p>Status: <span id="status">waiting</span></p>
-<p>Countdown: <span id="count">--</span></p>
+<p>Countdown: <span id="countdown">10</span></p>
+
+<input type="number" id="bet" placeholder="Bet Amount">
+<button onclick="placeBet()">Place Bet</button>
+<button onclick="cashout()">Cashout</button>
 
 <div id="multi">1.00x</div>
 <p id="msg"></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 
 <script>
-let multiplier = 1;
+let uid;
+let betAmt = 0;
 let flying = false;
-let crashAt = 999;
+let multiplier = 1;
+let crashAt = 100;
 let loop;
 
-firebase.database().ref("admin").on("value", snap=>{
-  const d = snap.val();
-  document.getElementById("count").innerText = d.countdown;
-  document.getElementById("round").innerText = d.roundId;
-  document.getElementById("status").innerText = d.status;
-  crashAt = d.crashAt;
+firebase.auth().onAuthStateChanged(user=>{
+  uid=user.uid;
 
-  if(d.status === "flying" && !flying){
-    startFlight();
-  }
+  firebase.database().ref("users/"+uid+"/balance")
+    .on("value",s=>bal.innerText=s.val()||0);
+
+  firebase.database().ref("admin").on("value",s=>{
+    const d=s.val();
+    status.innerText=d.status;
+    countdown.innerText=d.countdown;
+    crashAt=d.crashAt;
+
+    if(d.status==="flying" && !flying){
+      startFlight();
+    }
+  });
 });
 
+function placeBet(){
+  betAmt=Number(bet.value);
+  msg.innerText="Bet placed";
+}
+
 function startFlight(){
-  flying = true;
-  multiplier = 1;
-  loop = setInterval(()=>{
-    multiplier += 0.01;
-    multi.innerText = multiplier.toFixed(2)+"x";
-    if(multiplier >= crashAt){
+  flying=true;
+  multiplier=1;
+  clearInterval(loop);
+
+  loop=setInterval(()=>{
+    multiplier+=0.01;
+    multi.innerText=multiplier.toFixed(2)+"x";
+
+    if(multiplier>=crashAt){
       crash();
     }
   },200);
 }
 
+function cashout(){
+  if(!flying) return;
+  const profit=Math.floor(betAmt*(multiplier-1));
+  updateBal(profit);
+  msg.innerText="Cashed out +₹"+profit;
+}
+
 function crash(){
   clearInterval(loop);
-  flying = false;
-  multi.classList.add("crash");
-  msg.innerText = "CRASHED!";
+  flying=false;
+  msg.innerText="💥 CRASHED";
+  updateBal(-betAmt);
+}
+
+function updateBal(x){
+  const ref=firebase.database().ref("users/"+uid+"/balance");
+  ref.once("value").then(s=>ref.set((s.val()||0)+x));
 }
 </script>
 </body>
