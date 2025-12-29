@@ -9,14 +9,15 @@
 <div class="card">
 <h2>ADMIN PANEL</h2>
 
-<input type="number" id="crash" step="0.01" placeholder="Crash At (e.g 1.25)">
+<p>Round: <span id="round">1</span></p>
+<p>Status: <span id="status">waiting</span></p>
+<p>Countdown: <span id="cd">10</span></p>
+
+<input type="number" id="crashAt" step="0.01" placeholder="Crash At (eg 1.50)">
 <button onclick="setCrash()">Set Crash</button>
 
-<button onclick="startCountdown()">Start Round</button>
+<button onclick="startCountdown()">Start Countdown</button>
 
-<p>Status: <span id="status"></span></p>
-<p>Countdown: <span id="count"></span></p>
-<p>Round: <span id="round"></span></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -24,58 +25,47 @@
 <script src="firebase.js"></script>
 
 <script>
+let countdownTimer = null;
+
 const adminRef = firebase.database().ref("admin");
 
 adminRef.on("value", s=>{
   const d = s.val();
-  status.innerText = d.status;
-  count.innerText = d.countdown;
   round.innerText = d.roundId;
+  status.innerText = d.status;
+  cd.innerText = d.countdown;
 });
 
 function setCrash(){
   adminRef.update({
-    crashAt: Number(crash.value)
+    crashAt: Number(document.getElementById("crashAt").value)
   });
 }
 
-let timer=null;
-
 function startCountdown(){
-  clearInterval(timer);
+  clearInterval(countdownTimer);
+
   adminRef.update({
-    status:"waiting",
-    countdown:10
+    status: "waiting",
+    countdown: 10
   });
 
-  timer=setInterval(()=>{
+  countdownTimer = setInterval(()=>{
     adminRef.once("value").then(s=>{
-      let d=s.val();
-      if(d.countdown<=0){
-        adminRef.update({status:"flying"});
+      let d = s.val();
+      if(d.countdown <= 0){
+        clearInterval(countdownTimer);
+        adminRef.update({ status:"flying" });
         startFlight();
-        clearInterval(timer);
-      }else{
-        adminRef.update({countdown:d.countdown-1});
+        return;
       }
+      adminRef.update({ countdown: d.countdown - 1 });
     });
   },1000);
 }
 
 function startFlight(){
-  let m=1;
-  let fly=setInterval(()=>{
-    adminRef.once("value").then(s=>{
-      if(m>=s.val().crashAt){
-        clearInterval(fly);
-        adminRef.update({
-          status:"crashed",
-          roundId:s.val().roundId+1
-        });
-      }
-      m+=0.01;
-    });
-  },150);
+  // flight duration handled on user side
 }
 </script>
 </body>
