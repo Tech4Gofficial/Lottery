@@ -1,23 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Admin Panel</title>
+<title>Admin Aviator</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="card">
-<h2>Admin Aviator Control</h2>
+<h2>ADMIN PANEL</h2>
 
-<label>Crash At (x)</label>
-<input id="crash" type="number" step="0.01">
+<input type="number" id="crash" step="0.01" placeholder="Crash At (e.g 1.25)">
+<button onclick="setCrash()">Set Crash</button>
 
-<label>Countdown (sec)</label>
-<input id="count" type="number">
-
-<button onclick="updateAdmin()">Update</button>
+<button onclick="startCountdown()">Start Round</button>
 
 <p>Status: <span id="status"></span></p>
+<p>Countdown: <span id="count"></span></p>
+<p>Round: <span id="round"></span></p>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -28,18 +27,55 @@
 const adminRef = firebase.database().ref("admin");
 
 adminRef.on("value", s=>{
-  const d=s.val();
-  crash.value=d.crashAt;
-  count.value=d.countdown;
-  status.innerText=d.status;
+  const d = s.val();
+  status.innerText = d.status;
+  count.innerText = d.countdown;
+  round.innerText = d.roundId;
 });
 
-function updateAdmin(){
+function setCrash(){
   adminRef.update({
-    crashAt: Number(crash.value),
-    countdown: Number(count.value),
-    status: "waiting"
+    crashAt: Number(crash.value)
   });
+}
+
+let timer=null;
+
+function startCountdown(){
+  clearInterval(timer);
+  adminRef.update({
+    status:"waiting",
+    countdown:10
+  });
+
+  timer=setInterval(()=>{
+    adminRef.once("value").then(s=>{
+      let d=s.val();
+      if(d.countdown<=0){
+        adminRef.update({status:"flying"});
+        startFlight();
+        clearInterval(timer);
+      }else{
+        adminRef.update({countdown:d.countdown-1});
+      }
+    });
+  },1000);
+}
+
+function startFlight(){
+  let m=1;
+  let fly=setInterval(()=>{
+    adminRef.once("value").then(s=>{
+      if(m>=s.val().crashAt){
+        clearInterval(fly);
+        adminRef.update({
+          status:"crashed",
+          roundId:s.val().roundId+1
+        });
+      }
+      m+=0.01;
+    });
+  },150);
 }
 </script>
 </body>
