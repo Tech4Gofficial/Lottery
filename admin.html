@@ -1,53 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Aviator Control</title>
+<title>Admin Aviator</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>ADMIN PANEL</h2>
+<div class="card">
+<h2>Admin Control</h2>
+
+<input type="number" id="crash" step="0.01" placeholder="Crash At">
+<button onclick="setCrash()">Set Crash</button>
 
 <p>Countdown: <span id="cd">10</span></p>
-<p>Status: <span id="st">waiting</span></p>
-<p>Round: <span id="rd">1</span></p>
-
-<input id="crash" type="number" step="0.01" value="1.5">
-<button onclick="setCrash()">Set Crash</button>
+<button onclick="startCountdown()">Start Countdown</button>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <script src="firebase.js"></script>
 
 <script>
-let countdown = 10;
-let round = 1;
-let status = "waiting";
-
-firebase.database().ref("admin").once("value").then(s=>{
-  if(s.exists()){
-    countdown = s.val().countdown || 10;
-    round = s.val().roundId || 1;
-    status = s.val().status || "waiting";
-  }
-});
-
-setInterval(()=>{
-  if(status === "waiting"){
-    countdown--;
-    if(countdown <= 0){
-      status = "flying";
-      firebase.database().ref("admin").update({
-        status:"flying",
-        countdown:0
-      });
-    } else {
-      firebase.database().ref("admin/countdown").set(countdown);
-    }
-  }
-},1000);
+let countdownInterval = null;
 
 function setCrash(){
-  firebase.database().ref("admin/crashAt").set(Number(crash.value));
+  firebase.database().ref("admin/crashAt")
+    .set(Number(document.getElementById("crash").value));
+}
+
+function startCountdown(){
+  let cd = 10;
+  firebase.database().ref("admin").update({
+    status:"waiting",
+    countdown:cd
+  });
+
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(()=>{
+    cd--;
+    firebase.database().ref("admin/countdown").set(cd);
+
+    if(cd <= 0){
+      clearInterval(countdownInterval);
+      firebase.database().ref("admin").update({
+        status:"flying"
+      });
+    }
+  },1000);
 }
 </script>
 </body>
